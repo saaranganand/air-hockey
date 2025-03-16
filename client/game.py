@@ -19,7 +19,7 @@ class Paddle:
         self.y = y
         self.radius = 40
         self.color = color
-        self.maxSpeed = 15 
+        self.maxSpeed = 18 
         self.vx = 0
         self.vy = 0
         self.curSpeed = 15
@@ -83,15 +83,17 @@ class Puck:
     def __init__(self):
         self.x = WIDTH // 2
         self.y = HEIGHT // 2
-        self.radius = 20
-        self.color = WHITE
+        self.radius = 30
+        self.color = tuple([0, 220, 50])
         self.vx = 0  # Initial velocity
         self.vy = 0
         self.friction = 0.99
+        self.maxSpeed = 25
 
     def move(self):
         self.x += self.vx
         self.y += self.vy
+        
 
         # Bounce off walls
         if self.y - self.radius <= 0 or self.y + self.radius >= HEIGHT:
@@ -100,33 +102,98 @@ class Puck:
         if self.x - self.radius <= 0 or self.x + self.radius >= WIDTH:
             self.vx = -self.vx
 
-        # Send to center of ice if the puck glitches outside of playing area
-        if self.x < -self.radius or self.x > WIDTH + self.radius:
-            self.x = WIDTH // 2 
-            self.y = HEIGHT // 2 
-        if self.y < 0 or self.y > HEIGHT:
-            self.x = WIDTH // 2
-            self.y = HEIGHT // 2 
+        # Prevent clipping with walls
+        self.x = max(self.radius, min(self.x, WIDTH - self.radius))
+        self.y = max(self.radius, min(self.y, HEIGHT - self.radius))
 
         # Friction
         self.vx *= self.friction
         self.vy *= self.friction
 
+        velocity = math.sqrt(self.vx**2 + self.vy**2)
+        if velocity > self.maxSpeed:
+            self.vx = (self.vx / velocity) * self.maxSpeed
+            self.vy = (self.vy / velocity) * self.maxSpeed
+
 
     def draw(self, screen):
         pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
+class Goal:
+    def __init__(self, side):
+        self.width = 10 
+        self.height = HEIGHT // 3 
+        self.y = HEIGHT // 3
+        if side == "left":
+            self.x = 0 
+        elif side == "right":
+            self.x = WIDTH - self.width
+
+    def draw(self):
+        goal = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(screen, WHITE, goal)
+
+    def goal(self):
+        goalHornSoundEffect.play()
+        goalHornSoundEffect.fadeout(2500)
+
+    def checkCollisionWithPuck(self, puck):
+        puckDistanceX = abs(puck.x - self.x)
+        return puckDistanceX - puck.radius <= 0 and puck.y - puck.radius > self.y and puck.y + puck.radius < 2 * self.y
+            
 
 def checkCollisionPuckAndPaddle(paddle, puck):
     dist = math.hypot(paddle.x - puck.x, paddle.y - puck.y)
     if dist < paddle.radius + puck.radius:
+        if puckCollisionSound.get_num_channels() == 0:
+            puckCollisionSound.play(maxtime=500)
+
         angle = math.atan2(puck.y - paddle.y, puck.x - paddle.x)
-        puck.vx = paddle.curSpeed * math.cos(angle)
-        puck.vy = paddle.curSpeed * math.sin(angle)
+
+        # distances between paddles
+        dx = paddle.x - puck.x
+        dy = paddle.y - puck.y
+
+        # normal vector
+        nx = dx / dist
+        ny = dy / dist
+
+        # tangent vector
+        tx = -ny
+        ty = nx
+
+        # dot product tangent
+        dpTan1 = paddle.vx * tx + paddle.vy * ty
+        dpTan2 = puck.vx * tx + puck.vy * ty
+
+        # dot product normal
+        dpNorm1 = paddle.vx * nx + puck.vy * ny
+        dpNorm2 = puck.vx * nx + paddle.vy * ny
+        if paddle.isGrabbed:
+            puck.vx += paddle.curSpeed * math.cos(angle)
+            puck.vy += paddle.curSpeed * math.sin(angle)
+        else:
+            # Swap normal velocities
+            paddle.vx = tx * dpTan1 + nx * dpNorm2
+            paddle.vy = ty * dpTan1 + ny * dpNorm2
+            puck.vx = tx * dpTan2 + nx * dpNorm1
+            puck.vy = ty * dpTan2 + ny * dpNorm1
+
+        # prevent sticking together
+        overlap = (paddle.radius + puck.radius) - dist
+        if overlap < 0:
+            separation = (overlap / 2) + 0.5
+            paddle.x -= nx * separation 
+            paddle.y -= ny * separation 
+            puck.x += nx * separation 
+            puck.y += ny * separation 
 
 def checkCollisionPaddleAndPaddle(paddle1, paddle2):
     dist = math.hypot(paddle1.x - paddle2.x, paddle1.y - paddle2.y)
     if dist <= paddle1.radius * 2:
+        if paddleCollisionSound.get_num_channels() == 0:
+            paddleCollisionSound.play(maxtime=500)
+
         # distances between paddles
         dx = paddle1.x - paddle2.x
         dy = paddle1.y - paddle2.y
@@ -176,6 +243,7 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
         return paddle1, paddle2
     return None
 
+
 paddles = [
     Paddle(100, HEIGHT // 2, (0, 0, 255)),
     Paddle(WIDTH - 100, HEIGHT // 2, (255, 0, 0))
@@ -187,9 +255,24 @@ mousedown = False
 curPaddle = None
 running = True
 
+rightScore = 0
+rightGoal = Goal("right")
+leftScore = 0
+leftGoal = Goal("left")
+
+pygame.mixer.init()
+puckCollisionSound = pygame.mixer.Sound("./sounds/puck-sound.wav")
+paddleCollisionSound = pygame.mixer.Sound("./sounds/paddle-sound.wav")
+goalHornSoundEffect = pygame.mixer.Sound("./sounds/goalhorn.mp3")
+pygame.font.init()
+font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
+txtsurface = font.render("0:0", True, (255, 255, 255))
+
 while running:
     pygame.time.delay(15)  # Control game speed
     screen.fill(BLACK)
+    txtsurface = font.render(f"{leftScore}:{rightScore}", False, (255, 255, 255))
+    screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
 
     keys = pygame.key.get_pressed()
     # paddle1.move(keys, pygame.K_w, pygame.K_s, pygame.K_a, pygame.K_d)
@@ -217,6 +300,25 @@ while running:
     # paddle1.draw(screen)
     # paddle2.draw(screen)
     puck.draw(screen)
+    leftGoal.draw()
+    rightGoal.draw()
+
+    if leftGoal.checkCollisionWithPuck(puck):
+        print("Left Goal")
+        leftGoal.goal()
+        puck.x = WIDTH // 2
+        puck.y = HEIGHT // 2
+        puck.vx = 0
+        puck.vy = 0
+        rightScore += 1
+    if rightGoal.checkCollisionWithPuck(puck):
+        print("Right Goal")
+        rightGoal.goal()
+        puck.x = WIDTH // 2
+        puck.y = HEIGHT // 2
+        puck.vx = 0
+        puck.vy = 0
+        leftScore += 1
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
