@@ -22,7 +22,6 @@ is_paused = False
 game_running = False
 player_name = ""
 
-screen_lock = threading.Lock() #The screen itself is a shared object between threads/processes, so this must be locked
 
 def resume_game():
     global is_paused, pause_menu_active
@@ -55,7 +54,6 @@ def get_game_session(port, IP):
 
 
 def join_game():
-
     main_menu.disable()
     join_match_menu.enable()
     join_match_menu.mainloop(screen)
@@ -75,7 +73,6 @@ def start_the_game():
 
 
 def pause_menu():
-
     ingame_menu.enable()
     ingame_menu.mainloop(screen)
 
@@ -94,7 +91,7 @@ main_menu.add.button('Join A Server', join_game)
 main_menu.add.button('Quit', pygame_menu.events.EXIT)
 
 #Match join menu
-join_match_menu = pygame_menu.Menu('Join Match', WIDTH, HEIGHT,)
+join_match_menu = pygame_menu.Menu('Join Match', WIDTH, HEIGHT, )
 server_port = join_match_menu.add.text_input('Server IP :', '')
 server_ip = join_match_menu.add.text_input('Server Port :', '')
 join_match_menu.add.button('Join Match', start_the_game)
@@ -106,8 +103,7 @@ while running:
     if game_running:
 
         if pause_menu_active:
-            ingame_menu.enable()
-            ingame_menu.mainloop(screen)
+            pause_menu()
 
         player_name = name_box.get_value()
 
@@ -131,6 +127,7 @@ while running:
         clock.tick(60)  # limits FPS to 60
 
     else:
+
         main_menu.mainloop(screen)
 
 pygame.quit()
