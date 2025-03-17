@@ -18,24 +18,20 @@ pygame.font.init()
 my_font = pygame.font.SysFont('Comic Sans MS', 30)
 
 pause_menu_active = False
-is_paused = False
 game_running = False
 player_name = ""
 
 screen_lock = threading.Lock() #The screen itself is a shared object between threads/processes, so this must be locked
 
 def resume_game():
-    global is_paused, pause_menu_active
-    print("Resuming Game")
+    global pause_menu_active
     pause_menu_active = False
-    is_paused = False
     ingame_menu.disable()
 
 
 def pause_menu_to_main_menu():
-    global game_running, is_paused, pause_menu_active
+    global game_running, pause_menu_active
     game_running = False
-    is_paused = False  # Return to main menu
     pause_menu_active = False
     ingame_menu.disable()
     main_menu.enable()
@@ -71,36 +67,8 @@ def join_game():
 
 def start_the_game():
     global game_running
-    global is_paused
     game_running = True
-    is_paused = False
     main_menu.disable()
-
-
-def pause_menu():
-
-    global pause_menu_active
-
-    if not pause_menu_active:
-        pause_menu_active = True
-
-        def run_menu():
-
-            # Runs the pause menu in a separate thread
-
-            with screen_lock:
-
-                while pause_menu_active:
-                    ingame_menu.update(pygame.event.get())
-                    ingame_menu.draw(screen)
-                    pygame.display.flip()
-                    clock.tick(60)
-
-        threading.Thread(target=run_menu).start()
-
-    else:
-
-        resume_game()
 
 
 # Pause menu
@@ -128,28 +96,30 @@ while running:
 
     if game_running:
 
-        with screen_lock:
+        if pause_menu_active:
+            ingame_menu.enable()
+            ingame_menu.mainloop(screen)
 
-            player_name = name_box.get_value()
+        player_name = name_box.get_value()
 
-            screen.fill("purple")
+        screen.fill("purple")
 
-            # TODO: Add game logic here
+        # TODO: Add game logic here
 
-            # Display player's name
-            text_surface = my_font.render(player_name, False, (0, 0, 0))
-            screen.blit(text_surface, (10, 10))
+        # Display player's name
+        text_surface = my_font.render(player_name, False, (0, 0, 0))
+        screen.blit(text_surface, (10, 10))
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    pause_menu()
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                pause_menu_active = True
 
-            pygame.display.flip()
+        pygame.display.flip()
 
-            clock.tick(60)  # limits FPS to 60
+        clock.tick(60)  # limits FPS to 60
 
     else:
         main_menu.mainloop(screen)
