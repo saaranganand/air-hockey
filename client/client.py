@@ -18,20 +18,23 @@ pygame.font.init()
 my_font = pygame.font.SysFont('Comic Sans MS', 30)
 
 pause_menu_active = False
+is_paused = False
 game_running = False
 player_name = ""
 
 screen_lock = threading.Lock() #The screen itself is a shared object between threads/processes, so this must be locked
 
 def resume_game():
-    global pause_menu_active
+    global is_paused, pause_menu_active
     pause_menu_active = False
+    is_paused = False
     ingame_menu.disable()
 
 
 def pause_menu_to_main_menu():
     global game_running, pause_menu_active
     game_running = False
+
     pause_menu_active = False
     ingame_menu.disable()
     main_menu.enable()
@@ -69,6 +72,12 @@ def start_the_game():
     global game_running
     game_running = True
     main_menu.disable()
+
+
+def pause_menu():
+
+    ingame_menu.enable()
+    ingame_menu.mainloop(screen)
 
 
 # Pause menu
