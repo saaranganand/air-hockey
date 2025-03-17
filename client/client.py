@@ -36,6 +36,12 @@ def quit_to_main_menu():
     main_menu.enable()
 
 
+def join_menu_to_main_menu():
+
+    join_match_menu.disable()
+    main_menu.enable()
+
+
 def get_game_session(port, host):
     # TODO: This function should return an instance of the game session
     pass
@@ -43,6 +49,11 @@ def get_game_session(port, host):
 
 def join_game():
     # TODO: Add prompt for server code
+
+    main_menu.disable()
+    join_match_menu.enable()
+    join_match_menu.mainloop(screen)
+
     print("Joining game")
 
 
@@ -55,7 +66,7 @@ def start_the_game():
 
 
 # Pause menu
-ingame_menu = pygame_menu.Menu('Game', 600, 400, theme=pygame_menu.themes.THEME_BLUE)
+ingame_menu = pygame_menu.Menu('Paused', 600, 400, theme=pygame_menu.themes.THEME_BLUE)
 ingame_menu.add.button('Back to Main Menu', quit_to_main_menu)
 ingame_menu.add.button('Resume', resume_game)
 
@@ -64,8 +75,16 @@ main_menu = pygame_menu.Menu('2v2 Air Hockey', WIDTH, HEIGHT,
                              theme=pygame_menu.themes.THEME_BLUE)
 name_box = main_menu.add.text_input('Player Name :', '')
 main_menu.add.button('Start Match', start_the_game)
-main_menu.add.button('Join Game', join_game)
+main_menu.add.button('Join A Server', join_game)
 main_menu.add.button('Quit', pygame_menu.events.EXIT)
+
+#Match join menu
+join_match_menu = pygame_menu.Menu('Join Match', WIDTH, HEIGHT,)
+join_match_menu.add.text_input('Server IP :', '')
+join_match_menu.add.text_input('Server Port :', '')
+join_match_menu.add.button('Join Match', start_the_game)
+join_match_menu.add.button('Return to Main Menu', join_menu_to_main_menu)
+error_label = join_match_menu.add.label("")
 
 while running:
 
