@@ -12,8 +12,12 @@ paddles = {}
 
 lock = allocate_lock()
 
+active_clients = 0
+
 def handle_client(client_socket, client_addr):
     print(f"[+] {client_addr} connected") # validate connection
+    global active_clients
+    active_clients += 1
 
     while True:
         try:
@@ -46,26 +50,39 @@ def handle_client(client_socket, client_addr):
             del paddles[paddle_id]
     print(f"[-] {client_addr} disconnected")
     client_socket.close()
+    active_clients -=1
 
-# ------------
+    # shutdown if no clients
+    if active_clients == 0:
+        print("[*] No active clients. Shutting down server.")
+        interrupt_main()
 
-# start the server
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def start_server():
+    global active_clients
 
-try:
-    server_socket.bind((host, port))
-except socket.error as e: # port in use
-    str(e)
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# see if anything on port
-server_socket.listen()
-print(f"Server started, listening on {host}:{port}")
+        try:
+            server_socket.bind((host, port))
+        except socket.error as e: # port in use
+            str(e)
 
-# continuously look for connections
-while True:
-    # accept new connection
-    client_socket, client_addr = server_socket.accept()
-    print("Connection from: ", client_addr)
+        # see if anything on port
+        server_socket.listen()
+        print(f"Server started, listening on {host}:{port}")
 
-    start_new_thread(handle_client, (client_socket, client_addr))
+        # continuously look for connections
+        while True:
+            # accept new connection
+            client_socket, client_addr = server_socket.accept()
+            print("Connection from: ", client_addr)
+
+            start_new_thread(handle_client, (client_socket, client_addr))
+
+    except KeyboardInterrupt:
+        print("\nServer shutting down...")
+
+if __name__ == "__main__":
+    start_server()
