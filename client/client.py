@@ -1,4 +1,7 @@
 # Example file showing a basic pygame "game loop"
+import socket
+from time import sleep
+
 import pygame
 import pygame_menu
 import threading
@@ -21,7 +24,8 @@ pause_menu_active = False
 is_paused = False
 game_running = False
 player_name = ""
-
+game_session_started = False
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def resume_game():
     global is_paused, pause_menu_active
@@ -46,11 +50,18 @@ def join_menu_to_main_menu():
     main_menu.enable()
 
 
-def get_game_session(port, IP):
+def get_game_session():
     # TODO: This function should return an instance of the game session
     # TODO: The player is either joining a current game session or starting a new one
     # TODO: If the player is starting a new session, then this should return the new session
-    pass
+
+    try:
+
+        server.connect((SERVER_IP, SERVER_PORT))
+
+    except ConnectionRefusedError:
+
+        print("Connection refused")
 
 
 def join_game():
@@ -61,9 +72,11 @@ def join_game():
     SERVER_IP = server_ip.get_value()
     SERVER_PORT = server_port.get_value()
 
-    print(SERVER_IP)
-    print(SERVER_PORT)
-    print("Joining game")
+
+def join_the_game():
+    global game_running
+    game_running = True
+    join_match_menu.disable()
 
 
 def start_the_game():
@@ -94,7 +107,7 @@ main_menu.add.button('Quit', pygame_menu.events.EXIT)
 join_match_menu = pygame_menu.Menu('Join Match', WIDTH, HEIGHT, )
 server_port = join_match_menu.add.text_input('Server IP :', '')
 server_ip = join_match_menu.add.text_input('Server Port :', '')
-join_match_menu.add.button('Join Match', start_the_game)
+join_match_menu.add.button('Join Match', join_the_game)
 join_match_menu.add.button('Return to Main Menu', join_menu_to_main_menu)
 error_label = join_match_menu.add.label("")
 
@@ -104,6 +117,10 @@ while running:
 
         if pause_menu_active:
             pause_menu()
+
+        if not game_session_started:
+            get_game_session()
+            game_session_started = True
 
         player_name = name_box.get_value()
 
