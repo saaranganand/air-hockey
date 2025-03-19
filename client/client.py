@@ -26,9 +26,8 @@ pause_menu_active = False
 is_paused = False
 game_running = False
 player_name = ""
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket = None
 game_session = None
-
 
 def end_session():
 
@@ -37,7 +36,9 @@ def end_session():
     # TODO: Implement graceful disconnection with the host user
 
     server_socket.close()
-    game_session.stop_server()
+
+    if game_session:
+        game_session.stop_server()
 
 
 def resume_game():
@@ -66,8 +67,6 @@ def join_menu_to_main_menu():
 def get_game_session():
     global game_session, server_socket
     # TODO: This function should return an instance of the game session
-    # TODO: The player is either joining a current game session or starting a new one
-    # TODO: If the player is starting a new session, then this should return the new session
 
     try:
 
@@ -79,6 +78,7 @@ def get_game_session():
 
 
 def join_game():
+    global SERVER_IP, SERVER_PORT
     main_menu.disable()
     join_match_menu.enable()
     join_match_menu.mainloop(screen)
@@ -95,18 +95,36 @@ def join_the_game():
 
 
 def start_the_game():
-    global game_running, game_session
+    global game_running, game_session, server_socket
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     game_session = server.Server(2, SERVER_IP, SERVER_PORT)
-    threading.Thread(target=game_session.start_server).start()
 
-    time.sleep(5)
-    game_running = True
+    # Run the server in a different thread
+    threading.Thread(target=game_session.start_server, daemon=True).start()
 
-    # TODO: Need some way to start the game server, perhaps having a server class and instantiating a server object
+    player_connected = False
 
-    get_game_session()
-    main_menu.disable()
+    # Loop until the server becomes active and ready to accept players or timeout
+    for i in range(10):
+
+        try:
+
+            server_socket.connect((SERVER_IP, SERVER_PORT))
+            player_connected = True
+            break
+
+        except (ConnectionRefusedError, BrokenPipeError):
+            time.sleep(0.5)
+
+    if player_connected:
+        game_running = True
+        main_menu.disable()
+    else:
+        print("Failed to connect to server (timeout)")
+        game_session.stop_server()
+
 
 
 def pause_menu():
@@ -144,9 +162,9 @@ while running:
 
         player_name = name_box.get_value()
 
-        screen.fill("purple")
-
         # TODO: Add game logic here
+
+        screen.fill("purple")
 
         # Display player's name
         text_surface = my_font.render(player_name, False, (0, 0, 0))
