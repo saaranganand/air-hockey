@@ -5,7 +5,7 @@ from _thread import *
 
 
 class Server:
-    def __init__(self, num_players, host="0.0.0.0", port=12345):
+    def __init__(self, num_players, host="0.0.0.0", port=0):
         self.host = host
         self.port = port
         self.num_players = num_players
@@ -66,15 +66,11 @@ class Server:
 
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-            try:
-                self.server_socket.bind((self.host, self.port))
-            except socket.error as e: # port in use
-                str(e)
+            self.server_socket.bind((self.host, self.port))
 
             # see if anything on port
             self.server_socket.listen()
-            print(f"Server started, listening on {self.host}:{self.port}")
+            print(f"Server started, listening on {self.host}:{self.get_port_num()}")
 
             # continuously look for connections
             while True:
@@ -94,6 +90,13 @@ class Server:
             self.server_socket.close()
             self.server_socket = None
         print("Server stopped.")
+
+    def get_port_num(self):
+        """returns dynamicly assigned port number after bind"""
+        if self.server_socket:
+            return self.server_socket.getsockname()[1]
+        return None
+
 
 if __name__ == "__main__":
     server = Server(num_players=2) #initalized with 2 players
