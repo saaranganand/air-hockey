@@ -1,16 +1,18 @@
 # Example file showing a basic pygame "game loop"
 import socket
+import time
 from time import sleep
 
 import pygame
 import pygame_menu
 import threading
+from server import server
 
 HEIGHT = 720
 WIDTH = 1280
 
-SERVER_PORT = 0
-SERVER_IP = ''
+SERVER_PORT = 55000
+SERVER_IP = '127.0.0.1'
 
 # pygame setup
 pygame.init()
@@ -24,8 +26,19 @@ pause_menu_active = False
 is_paused = False
 game_running = False
 player_name = ""
-game_session_started = False
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+game_session = None
+
+
+def end_session():
+
+    global game_session, server_socket
+
+    # TODO: Implement graceful disconnection with the host user
+
+    server_socket.close()
+    game_session.stop_server()
+
 
 def resume_game():
     global is_paused, pause_menu_active
@@ -37,7 +50,7 @@ def resume_game():
 def pause_menu_to_main_menu():
     global game_running, pause_menu_active
     game_running = False
-
+    end_session()
     pause_menu_active = False
     ingame_menu.disable()
     main_menu.enable()
@@ -51,13 +64,14 @@ def join_menu_to_main_menu():
 
 
 def get_game_session():
+    global game_session, server_socket
     # TODO: This function should return an instance of the game session
     # TODO: The player is either joining a current game session or starting a new one
     # TODO: If the player is starting a new session, then this should return the new session
 
     try:
 
-        server.connect((SERVER_IP, SERVER_PORT))
+        server_socket.connect((SERVER_IP, SERVER_PORT))
 
     except ConnectionRefusedError:
 
@@ -81,7 +95,12 @@ def join_the_game():
 
 
 def start_the_game():
-    global game_running
+    global game_running, game_session
+
+    game_session = server.Server(2, SERVER_IP, SERVER_PORT)
+    threading.Thread(target=game_session.start_server).start()
+
+    time.sleep(5)
     game_running = True
 
     # TODO: Need some way to start the game server, perhaps having a server class and instantiating a server object
@@ -135,6 +154,7 @@ while running:
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                end_session()
                 running = False
 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
