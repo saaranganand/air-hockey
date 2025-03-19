@@ -76,12 +76,17 @@ def join_game():
 def join_the_game():
     global game_running
     game_running = True
+    get_game_session()
     join_match_menu.disable()
 
 
 def start_the_game():
     global game_running
     game_running = True
+
+    # TODO: Need some way to start the game server, perhaps having a server class and instantiating a server object
+
+    get_game_session()
     main_menu.disable()
 
 
@@ -117,10 +122,6 @@ while running:
 
         if pause_menu_active:
             pause_menu()
-
-        if not game_session_started:
-            get_game_session()
-            game_session_started = True
 
         player_name = name_box.get_value()
 
