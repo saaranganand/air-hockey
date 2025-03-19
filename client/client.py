@@ -78,18 +78,16 @@ def get_game_session():
 
 
 def join_game():
-    global SERVER_IP, SERVER_PORT
     main_menu.disable()
     join_match_menu.enable()
     join_match_menu.mainloop(screen)
 
-    SERVER_IP = server_ip.get_value()
-    SERVER_PORT = server_port.get_value()
-
 
 def join_the_game():
-    global game_running
+    global game_running, SERVER_IP, SERVER_PORT
     game_running = True
+    SERVER_IP = server_ip.get_value()
+    SERVER_PORT = server_port.get_value()
     get_game_session()
     join_match_menu.disable()
 
