@@ -1,11 +1,12 @@
 import pygame
 import math
+import json
 
 # Initialize Pygame
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 1200, 800
+WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
@@ -25,7 +26,7 @@ class Paddle:
         self.curSpeed = 0 
         self.friction = 0.97
         self.isGrabbed = False
-
+    
     def move(self):
         if not self.isGrabbed:
             self.x += self.vx
@@ -61,9 +62,9 @@ class Paddle:
             self.curSpeed = math.sqrt(self.vx ** 2 + self.vy ** 2)
 
     # returns True if the mouse is inside the paddle's radius
-    def mouseInRadius(self):
+    def mouseInRadius(self, paddle):
         mouseX, mouseY = pygame.mouse.get_pos()
-        if mouseX < paddle.x + paddle.radius and mouseX > paddle.x - paddle.radius and mouseY < paddle.y + paddle.radius and mouseY > paddle.y - paddle.radius:
+        if mouseX < self.x + self.radius and mouseX > self.x - self.radius and mouseY < paddle.y + self.radius and mouseY > self.y - paddle.radius:
             return True
         else:
             return False
@@ -185,7 +186,6 @@ def checkCollisionPuckAndPaddle(paddle, puck):
 
         # prevent sticking together
         overlap = (paddle.radius + puck.radius) - dist
-        print(overlap)
         if overlap < 0:
             separation = (overlap / 2) + 0.5
             paddle.x += nx * separation 
@@ -249,102 +249,114 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
     return None
 
 
-paddles = [
-    Paddle(100, HEIGHT // 2, (0, 0, 255)),
-    Paddle(WIDTH - 100, HEIGHT // 2, (255, 0, 0))
-]
-
-puck = Puck()
-
-mousedown = False
-curPaddle = None
-running = True
-
-rightScore = 0
-rightGoal = Goal("right")
-leftScore = 0
-leftGoal = Goal("left")
-
-pygame.mixer.init()
 puckCollisionSound = pygame.mixer.Sound("./sounds/puck-sound.wav")
 paddleCollisionSound = pygame.mixer.Sound("./sounds/paddle-sound.wav")
 goalHornSoundEffect = pygame.mixer.Sound("./sounds/goalhorn.mp3")
-pygame.font.init()
+
 font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
 txtsurface = font.render("0:0", True, (255, 255, 255))
 
-while running:
-    pygame.time.delay(30)  # Control game speed
-    screen.fill(BLACK)
-    txtsurface = font.render(f"{leftScore}:{rightScore}", False, (255, 255, 255))
-    screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
+class Game:
+    def __init__(self, serverSocket):
+        self.paddles = [
+            Paddle(100, HEIGHT // 2, (0, 0, 255)),
+            Paddle(WIDTH - 100, HEIGHT // 2, (255, 0, 0))
+        ]
 
-    keys = pygame.key.get_pressed()
-    # paddle1.move(keys, pygame.K_w, pygame.K_s, pygame.K_a, pygame.K_d)
-    mouseX, mouseY = pygame.mouse.get_pos()
+        if serverSocket is None:
+            raise Exception("Server socket is None")
 
-    collisions = []
+        self.serverSocket = serverSocket
+        self.puck = Puck()
 
-    if mousedown and curPaddle:
-        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
-    else:
-        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        self.mousedown = False
+        self.curPaddle = None
+        self.running = False 
 
-    puck.move()
-    for paddle in paddles:
-        checkCollisionPuckAndPaddle(paddle, puck)
-        paddle.draw(screen)
-        paddle.move()
-        if not curPaddle and paddle.mouseInRadius():
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-        if paddle not in collisions:
-            for paddle2 in paddles:
-                if paddle2 != paddle:
-                    collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
+        self.rightScore = 0
+        self.rightGoal = Goal("right")
+        self.leftScore = 0
+        self.leftGoal = Goal("left")
 
-    # paddle1.draw(screen)
-    # paddle2.draw(screen)
-    puck.draw(screen)
-    leftGoal.draw()
-    rightGoal.draw()
+        pygame.font.init()
+        pygame.mixer.init()
 
-    if leftGoal.checkCollisionWithPuck(puck):
-        print("Left Goal")
-        leftGoal.goal()
-        puck.x = WIDTH // 2
-        puck.y = HEIGHT // 2
-        puck.vx = 0
-        puck.vy = 0
-        rightScore += 1
-    if rightGoal.checkCollisionWithPuck(puck):
-        print("Right Goal")
-        rightGoal.goal()
-        puck.x = WIDTH // 2
-        puck.y = HEIGHT // 2
-        puck.vx = 0
-        puck.vy = 0
-        leftScore += 1
+    def run(self):
+        self.running = True
+        while self.running:
+            pygame.time.delay(30)  # Control game speed
+            screen.fill(BLACK)
+            txtsurface = font.render(f"{self.leftScore}:{self.rightScore}", False, (255, 255, 255))
+            screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                for paddle in paddles:
-                    if paddle.mouseInRadius():
-                        curPaddle = paddle
-                        curPaddle.isGrabbed = True
-                        break
-                mousedown = True
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                print(curPaddle)
-                if curPaddle:
-                    curPaddle.isGrabbed = False
-                    curPaddle = None
-                mousedown = False
+            # keys = pygame.key.get_pressed()
+            # mouseX, mouseY = pygame.mouse.get_pos()
 
-    pygame.display.update()
+            collisions = []
 
-pygame.quit()
+            if self.mousedown and self.curPaddle:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
+            else:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+            self.puck.move()
+            for paddle in self.paddles:
+                checkCollisionPuckAndPaddle(paddle, self.puck)
+                paddle.draw(screen)
+                paddle.move()
+                if not self.curPaddle and paddle.mouseInRadius(paddle):
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+                if paddle not in collisions:
+                    for paddle2 in self.paddles:
+                        if paddle2 != paddle:
+                            collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
+
+            # paddle1.draw(screen)
+            # paddle2.draw(screen)
+            self.puck.draw(screen)
+            self.leftGoal.draw()
+            self.rightGoal.draw()
+
+            if self.leftGoal.checkCollisionWithPuck(self.puck):
+                self.leftGoal.goal()
+                self.puck.x = WIDTH // 2
+                self.puck.y = HEIGHT // 2
+                self.puck.vx = 0
+                self.puck.vy = 0
+                self.rightScore += 1
+            if self.rightGoal.checkCollisionWithPuck(self.puck):
+                self.rightGoal.goal()
+                self.puck.x = WIDTH // 2
+                self.puck.y = HEIGHT // 2
+                self.puck.vx = 0
+                self.puck.vy = 0
+                self.leftScore += 1
+
+            if self.curPaddle:
+                packet = json.dumps({
+                    "type": "Paddle",
+                    "position": [self.curPaddle.x, self.curPaddle.y]
+                })
+                self.serverSocket.send(str.encode(packet))
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        for paddle in self.paddles:
+                            if paddle.mouseInRadius(paddle):
+                                self.curPaddle = paddle
+                                self.curPaddle.isGrabbed = True
+                                break
+                        self.mousedown = True
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        print(self.curPaddle)
+                        if self.curPaddle:
+                            self.curPaddle.isGrabbed = False
+                            self.curPaddle = None
+                        self.mousedown = False
+
+            pygame.display.update()
 
