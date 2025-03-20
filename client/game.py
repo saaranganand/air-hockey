@@ -19,10 +19,10 @@ class Paddle:
         self.y = y
         self.radius = 40
         self.color = color
-        self.maxSpeed = 18 
+        self.maxSpeed = 22 
         self.vx = 0
         self.vy = 0
-        self.curSpeed = 15
+        self.curSpeed = 0 
         self.friction = 0.97
         self.isGrabbed = False
 
@@ -71,10 +71,11 @@ class Paddle:
 
     def draw(self, screen):
         if self.isGrabbed:
+            # Make the color darker to indicate to all players that the paddle has been grabbed
             tempColor = []
-            tempColor.append(self.color[0] * 0.8)
-            tempColor.append(self.color[1] * 0.8)
-            tempColor.append(self.color[2] * 0.8)
+            tempColor.append(self.color[0] * 0.5)
+            tempColor.append(self.color[1] * 0.5)
+            tempColor.append(self.color[2] * 0.5)
             pygame.draw.circle(screen, tuple(tempColor), (self.x, self.y), self.radius)
         else:
             pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
@@ -145,6 +146,9 @@ class Goal:
 def checkCollisionPuckAndPaddle(paddle, puck):
     dist = math.hypot(paddle.x - puck.x, paddle.y - puck.y)
     if dist < paddle.radius + puck.radius:
+        if dist == 0:
+            dist = 10e-6 # prevent division by 0
+        print(dist)
         if puckCollisionSound.get_num_channels() == 0:
             puckCollisionSound.play(maxtime=500)
 
@@ -167,8 +171,8 @@ def checkCollisionPuckAndPaddle(paddle, puck):
         dpTan2 = puck.vx * tx + puck.vy * ty
 
         # dot product normal
-        dpNorm1 = paddle.vx * nx + puck.vy * ny
-        dpNorm2 = puck.vx * nx + paddle.vy * ny
+        dpNorm1 = paddle.vx * nx + paddle.vy * ny
+        dpNorm2 = puck.vx * nx + puck.vy * ny
         if paddle.isGrabbed:
             puck.vx += paddle.curSpeed * math.cos(angle)
             puck.vy += paddle.curSpeed * math.sin(angle)
@@ -181,12 +185,13 @@ def checkCollisionPuckAndPaddle(paddle, puck):
 
         # prevent sticking together
         overlap = (paddle.radius + puck.radius) - dist
+        print(overlap)
         if overlap < 0:
             separation = (overlap / 2) + 0.5
-            paddle.x -= nx * separation 
-            paddle.y -= ny * separation 
-            puck.x += nx * separation 
-            puck.y += ny * separation 
+            paddle.x += nx * separation 
+            paddle.y += ny * separation 
+            puck.x -= nx * separation 
+            puck.y -= ny * separation 
 
 def checkCollisionPaddleAndPaddle(paddle1, paddle2):
     dist = math.hypot(paddle1.x - paddle2.x, paddle1.y - paddle2.y)
@@ -269,7 +274,7 @@ font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
 txtsurface = font.render("0:0", True, (255, 255, 255))
 
 while running:
-    pygame.time.delay(15)  # Control game speed
+    pygame.time.delay(30)  # Control game speed
     screen.fill(BLACK)
     txtsurface = font.render(f"{leftScore}:{rightScore}", False, (255, 255, 255))
     screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
