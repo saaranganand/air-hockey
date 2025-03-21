@@ -96,14 +96,22 @@ def join_the_game():
 
 
 def start_the_game():
-    global game_running, game_session, server_socket
+    global game_running, game_session, server_socket, SERVER_PORT, SERVER_IP
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    game_session = server.Server(2, SERVER_IP, SERVER_PORT)
+    game_session = server.Server(2, SERVER_IP)
 
     # Run the server in a different thread
     threading.Thread(target=game_session.start_server, daemon=True).start()
+
+    SERVER_PORT = game_session.get_port_num()
+
+    if SERVER_PORT is None:
+
+        print("Server port not available")
+        game_session.stop_server()
+        return
 
     player_connected = False
 
