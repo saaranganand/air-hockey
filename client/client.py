@@ -127,7 +127,6 @@ def start_the_game():
         game_session.stop_server()
 
 
-
 def pause_menu():
     ingame_menu.enable()
     ingame_menu.mainloop(screen)
