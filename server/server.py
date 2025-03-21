@@ -93,7 +93,6 @@ class Server:
     def get_port_num(self):
         """returns dynamicly assigned port number after bind"""
         if self.server_socket is not None:
-            print(f" The port is{self.server_socket.getsockname()[1]}")
             return self.server_socket.getsockname()[1]
         return None
 
