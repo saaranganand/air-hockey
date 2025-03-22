@@ -2,11 +2,17 @@
 import socket
 import time
 from time import sleep
+import sys
+import os 
+
+sys.path.append(os.path.abspath("../server"))
 
 import pygame
 import pygame_menu
 import threading
-from server import server
+# from server import server
+import server
+from game import Game
 
 HEIGHT = 720
 WIDTH = 1280
@@ -178,6 +184,11 @@ join_match_menu.add.button('Join Match', join_the_game)
 join_match_menu.add.button('Return to Main Menu', join_menu_to_main_menu)
 error_label = join_match_menu.add.label("")
 
+def runGame(playerName, serverSocket):
+    game = Game(serverSocket)
+    game.run()
+    return game
+
 while running:
 
     if game_running:
@@ -187,7 +198,10 @@ while running:
 
         player_name = name_box.get_value()
 
-        # TODO: Add game logic here
+        game = runGame(player_name, server_socket)
+        if not game.running:
+           running = False
+        
 
         screen.fill("purple")
 
@@ -210,5 +224,6 @@ while running:
     else:
 
         main_menu.mainloop(screen)
+
 
 pygame.quit()
