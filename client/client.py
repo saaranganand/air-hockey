@@ -92,7 +92,6 @@ def join_the_game():
 def wait_for_server():
 
     global SERVER_PORT, game_session
-    server_up = False
 
     # Extract the port number from the server, if it fails after 5 attempts, time out
 
@@ -102,20 +101,18 @@ def wait_for_server():
 
         if SERVER_PORT is not None:
             print(f"The port is {SERVER_PORT}")
-            server_up = True
-            break
+            return True
 
         else:
 
             sleep(0.3)
 
-    return server_up
+    return False
 
 
 def wait_and_connect():
 
     global SERVER_PORT, SERVER_IP, server_socket
-    player_connected = False
 
     # Connect to the server. If it fails after 5 attempts, time out
 
@@ -128,14 +125,12 @@ def wait_and_connect():
             if server_socket:
 
                 server_socket.connect((SERVER_IP, SERVER_PORT))
-                player_connected = True
-                break
-
+                return True
 
         except ConnectionRefusedError:
             time.sleep(0.3)
 
-    return player_connected
+    return False
 
 
 def start_the_game():
