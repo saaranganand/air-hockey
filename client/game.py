@@ -1,6 +1,12 @@
+import socket
+import threading
+import time
+
+from server import server
 import pygame
 import math
 import json
+import pygame_menu
 
 # Initialize Pygame
 pygame.init()
@@ -9,10 +15,189 @@ pygame.init()
 WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+SERVER_PORT = 55000
+SERVER_IP = '127.0.0.1'
+pause_menu_active = False
+is_paused = False
+game_running = False
+player_name = ""
+server_socket = None
+game_session = None
+main_menu = None
+pause_menu = None
+join_match_menu = None
 
 # Create game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Air Hockey")
+
+
+def wait_for_server():
+
+    global SERVER_PORT, game_session
+
+    # Extract the port number from the server, if it fails after 5 attempts, time out
+
+    for i in range(5):
+
+        SERVER_PORT = game_session.get_port_num()
+
+        if SERVER_PORT is not None:
+            print(f"The port is {SERVER_PORT}")
+            return True
+
+        else:
+
+            time.sleep(0.3)
+
+    return False
+
+
+def wait_and_connect():
+
+    global SERVER_PORT, SERVER_IP, server_socket
+
+    # Connect to the server. If it fails after 5 attempts, time out
+
+    for i in range(5):
+
+        print(f"Attempt #{i}")
+
+        try:
+
+            if server_socket:
+                server_socket.connect((SERVER_IP, SERVER_PORT))
+
+                return True
+
+        except ConnectionRefusedError:
+            time.sleep(0.3)
+
+    return False
+
+
+def end_session():
+
+    global game_session, server_socket
+
+    # TODO: Implement graceful disconnection with the host user
+
+    server_socket.close()
+
+    if game_session:
+        game_session.stop_server()
+
+
+class PauseMenu:
+
+    def __init__(self):
+        self.menu = pygame_menu.Menu('Paused', 600, 400, theme=pygame_menu.themes.THEME_BLUE)
+        self.menu.add.button('Back to Main Menu', self.pause_menu_to_main_menu)
+        self.menu.add.button('Resume', self.resume_game)
+
+    def pause_menu_to_main_menu(self):
+        global game_running, pause_menu_active, main_menu
+        game_running = False
+        end_session()
+        pause_menu_active = False
+        self.menu.disable()
+        main_menu.show()
+
+    def resume_game(self):
+        global is_paused, pause_menu_active
+        pause_menu_active = False
+        is_paused = False
+        self.menu.disable()
+
+    def show(self):
+        self.menu.enable()
+        self.menu.mainloop(screen)
+
+
+class MainMenu:
+
+    def __init__(self):
+
+        self.menu = pygame_menu.Menu('2v2 Air Hockey', WIDTH, HEIGHT,
+                                     theme=pygame_menu.themes.THEME_BLUE)
+        self.name_box = self.menu.add.text_input('Player Name :', '')
+        self.menu.add.button('Start Match', self.start_the_game)
+        self.menu.add.button('Join A Server', self.join_game)
+        self.menu.add.button('Quit', pygame_menu.events.EXIT)
+
+    def get_name(self):
+
+        return self.name_box.value()
+
+
+    def start_the_game(self):
+
+        global game_running, game_session, server_socket, SERVER_PORT, SERVER_IP
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        game_session = server.Server(2, SERVER_IP)
+
+        # Run the server in a different thread
+        threading.Thread(target=game_session.start_server, daemon=True).start()
+
+        if wait_for_server() and wait_and_connect():
+
+            game_running = True
+            self.menu.disable()
+
+        else:
+            game_session.stop_server()
+            print("Could not connect to server")
+
+
+    def join_game(self):
+
+        global join_match_menu
+
+        self.menu.disable()
+        join_match_menu.show()
+
+    def show(self):
+        self.menu.enable()
+        self.menu.mainloop(screen)
+
+
+class JoinGameMenu:
+
+    def __init__(self):
+
+        self.menu = pygame_menu.Menu('Join Match', WIDTH, HEIGHT,)
+        self.server_ip = self.menu.add.text_input('Server IP :', '')
+        self.server_port = self.menu.add.text_input('Server Port :', '')
+        self.menu.add.button('Join Match', self.join_the_game)
+        self.menu.add.button('Return to Main Menu', self.join_menu_to_main_menu)
+        self.error_label = self.menu.add.label("")
+
+    def join_the_game(self):
+
+        global game_running, SERVER_IP, SERVER_PORT, server_socket
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        SERVER_IP = self.server_ip.get_value()
+        SERVER_PORT = int(self.server_port.get_value())
+
+        if wait_and_connect():
+            game_running = True
+            self.menu.disable()
+
+    def join_menu_to_main_menu(self):
+
+        global main_menu
+        self.server_port.reset_value()
+        self.server_ip.reset_value()
+        self.menu.disable()
+        main_menu.show()
+
+    def show(self):
+
+        self.menu.enable()
+        self.menu.mainloop(screen)
+
 
 class Paddle:
     def __init__(self, x, y, color):
@@ -257,106 +442,133 @@ font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
 txtsurface = font.render("0:0", True, (255, 255, 255))
 
 class Game:
-    def __init__(self, serverSocket):
+    def __init__(self):
         self.paddles = [
             Paddle(100, HEIGHT // 2, (0, 0, 255)),
             Paddle(WIDTH - 100, HEIGHT // 2, (255, 0, 0))
         ]
 
-        if serverSocket is None:
-            raise Exception("Server socket is None")
-
-        self.serverSocket = serverSocket
+        # if serverSocket is None:
+        #     raise Exception("Server socket is None")
+        #
+        # self.serverSocket = serverSocket
         self.puck = Puck()
 
         self.mousedown = False
         self.curPaddle = None
-        self.running = False 
+        self.running = True
 
         self.rightScore = 0
         self.rightGoal = Goal("right")
         self.leftScore = 0
         self.leftGoal = Goal("left")
 
+
+
         pygame.font.init()
         pygame.mixer.init()
 
     def run(self):
-        self.running = True
+        global pause_menu_active, game_running, main_menu, pause_menu, join_match_menu, server_socket
+
+        ack = json.dumps({
+            "action": "Test",
+            "status": "success",
+            "paddle_id": 12345
+        })
+        # Init Menus
+        pause_menu = PauseMenu()
+        main_menu = MainMenu()
+        join_match_menu = JoinGameMenu()
+
         while self.running:
-            pygame.time.delay(30)  # Control game speed
-            screen.fill(BLACK)
-            txtsurface = font.render(f"{self.leftScore}:{self.rightScore}", False, (255, 255, 255))
-            screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
 
-            # keys = pygame.key.get_pressed()
-            # mouseX, mouseY = pygame.mouse.get_pos()
+            if game_running:
 
-            collisions = []
+                if pause_menu_active:
 
-            if self.mousedown and self.curPaddle:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
+                    server_socket.sendall(ack.encode('utf-8'))
+
+                    pause_menu.show()
+
+                pygame.time.delay(30)  # Control game speed
+                screen.fill(BLACK)
+                txtsurface = font.render(f"{self.leftScore}:{self.rightScore}", False, (255, 255, 255))
+                screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
+
+                # keys = pygame.key.get_pressed()
+                # mouseX, mouseY = pygame.mouse.get_pos()
+
+                collisions = []
+
+                if self.mousedown and self.curPaddle:
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
+                else:
+                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+
+                self.puck.move()
+                for paddle in self.paddles:
+                    checkCollisionPuckAndPaddle(paddle, self.puck)
+                    paddle.draw(screen)
+                    paddle.move()
+                    if not self.curPaddle and paddle.mouseInRadius(paddle):
+                        pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+                    if paddle not in collisions:
+                        for paddle2 in self.paddles:
+                            if paddle2 != paddle:
+                                collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
+
+                # paddle1.draw(screen)
+                # paddle2.draw(screen)
+                self.puck.draw(screen)
+                self.leftGoal.draw()
+                self.rightGoal.draw()
+
+                if self.leftGoal.checkCollisionWithPuck(self.puck):
+                    self.leftGoal.goal()
+                    self.puck.x = WIDTH // 2
+                    self.puck.y = HEIGHT // 2
+                    self.puck.vx = 0
+                    self.puck.vy = 0
+                    self.rightScore += 1
+                if self.rightGoal.checkCollisionWithPuck(self.puck):
+                    self.rightGoal.goal()
+                    self.puck.x = WIDTH // 2
+                    self.puck.y = HEIGHT // 2
+                    self.puck.vx = 0
+                    self.puck.vy = 0
+                    self.leftScore += 1
+
+                if self.curPaddle:
+                    packet = json.dumps({
+                        "type": "Paddle",
+                        "position": [self.curPaddle.x, self.curPaddle.y]
+                    })
+                    # server_socket.send(str.encode(packet))
+
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self.running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == 1:
+                            for paddle in self.paddles:
+                                if paddle.mouseInRadius(paddle):
+                                    self.curPaddle = paddle
+                                    self.curPaddle.isGrabbed = True
+                                    break
+                            self.mousedown = True
+                    elif event.type == pygame.MOUSEBUTTONUP:
+                        if event.button == 1:
+                            print(self.curPaddle)
+                            if self.curPaddle:
+                                self.curPaddle.isGrabbed = False
+                                self.curPaddle = None
+                            self.mousedown = False
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        pause_menu_active = True
             else:
-                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
-
-            self.puck.move()
-            for paddle in self.paddles:
-                checkCollisionPuckAndPaddle(paddle, self.puck)
-                paddle.draw(screen)
-                paddle.move()
-                if not self.curPaddle and paddle.mouseInRadius(paddle):
-                    pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
-                if paddle not in collisions:
-                    for paddle2 in self.paddles:
-                        if paddle2 != paddle:
-                            collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
-
-            # paddle1.draw(screen)
-            # paddle2.draw(screen)
-            self.puck.draw(screen)
-            self.leftGoal.draw()
-            self.rightGoal.draw()
-
-            if self.leftGoal.checkCollisionWithPuck(self.puck):
-                self.leftGoal.goal()
-                self.puck.x = WIDTH // 2
-                self.puck.y = HEIGHT // 2
-                self.puck.vx = 0
-                self.puck.vy = 0
-                self.rightScore += 1
-            if self.rightGoal.checkCollisionWithPuck(self.puck):
-                self.rightGoal.goal()
-                self.puck.x = WIDTH // 2
-                self.puck.y = HEIGHT // 2
-                self.puck.vx = 0
-                self.puck.vy = 0
-                self.leftScore += 1
-
-            if self.curPaddle:
-                packet = json.dumps({
-                    "type": "Paddle",
-                    "position": [self.curPaddle.x, self.curPaddle.y]
-                })
-                self.serverSocket.send(str.encode(packet))
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:
-                        for paddle in self.paddles:
-                            if paddle.mouseInRadius(paddle):
-                                self.curPaddle = paddle
-                                self.curPaddle.isGrabbed = True
-                                break
-                        self.mousedown = True
-                elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button == 1:
-                        print(self.curPaddle)
-                        if self.curPaddle:
-                            self.curPaddle.isGrabbed = False
-                            self.curPaddle = None
-                        self.mousedown = False
+                main_menu.show()
 
             pygame.display.update()
 
+        pygame.quit()
