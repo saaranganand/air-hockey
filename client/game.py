@@ -87,7 +87,7 @@ def end_session():
     if game_session:
         game_session.stop_server()
 
-
+# Classes for game menus
 class PauseMenu:
 
     def __init__(self):
