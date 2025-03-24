@@ -10,7 +10,7 @@ class Server:
         self.num_players = num_players
         self.server_socket = None
         self.active_clients = 0
-
+        self.running = False
         # Game state
         self.players = {}
         self.paddles = {}
@@ -39,7 +39,11 @@ class Server:
                 # ---
                 # PLAYER JOINS
                 # ---
-                if action == "join":
+
+                if action == 'disconnect':
+                    player_id = message.get('player_id')
+                    break
+                elif action == "join":
                     player_id = str(uuid.uuid4()) # unique
 
                     # register player and assign paddle
@@ -187,19 +191,22 @@ class Server:
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.bind((self.host, self.port))
-
+            self.running = True
             # see if anything on port
             self.server_socket.listen()
             print(f"Server started, listening on {self.host}:{self.get_port_num()}")
 
             # continuously look for connections
-            while True:
-                # accept new connection
-                client_socket, client_addr = self.server_socket.accept()
-                print("Connection from: ", client_addr)
+            while self.running:
+                try:
+                    # accept new connection
+                    client_socket, client_addr = self.server_socket.accept()
+                    print("Connection from: ", client_addr)
 
-                start_new_thread(self.handle_client, (client_socket, client_addr))
-
+                    start_new_thread(self.handle_client, (client_socket, client_addr))
+                except Exception as e:
+                    if not self.running:
+                        break
         except KeyboardInterrupt:
             print("\nServer shutting down...")
 
@@ -207,6 +214,7 @@ class Server:
     def stop_server(self):
         """Stops the server."""
         if self.server_socket:
+            self.running = False
             self.server_socket.close()
             self.server_socket = None
         print("Server stopped.")

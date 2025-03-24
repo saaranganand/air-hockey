@@ -26,6 +26,7 @@ pause_menu_active = False
 is_paused = False
 game_running = False
 player_name = ""
+player_id = ""
 server_socket = None
 game_session = None
 main_menu = None
@@ -38,11 +39,9 @@ pygame.display.set_caption("Air Hockey")
 
 
 def wait_for_server():
-
     global SERVER_PORT, game_session
 
     # Extract the port number from the server, if it fails after 5 attempts, time out
-
     for i in range(5):
 
         SERVER_PORT = game_session.get_port_num()
@@ -59,51 +58,72 @@ def wait_for_server():
 
 
 def wait_and_connect():
-
     global SERVER_PORT, SERVER_IP, server_socket
 
     # Connect to the server. If it fails after 5 attempts, time out
-
     for i in range(5):
-
-        print(f"Attempt #{i}")
 
         try:
 
             if server_socket:
-                server_socket.connect((SERVER_IP, SERVER_PORT))
+
+                get_player_id()
 
                 return True
 
-        except ConnectionRefusedError:
+        except Exception as e:
             time.sleep(0.3)
 
     return False
 
 
-def end_session():
-
+# Quit the current match
+def leave_match():
     global game_session, server_socket
 
     # TODO: Implement graceful disconnection with the host user
+    try:
+        msg = json.dumps({
+            "action": "disconnect",
+            "player_id": player_id
+        })
+        server_socket.sendall(msg.encode('utf-8'))
+        server_socket.close()
 
-    server_socket.close()
+    except Exception as e:
+        print(e)
 
-    if game_session:
-        game_session.stop_server()
+def get_player_id():
+    global server_socket, player_id
+
+    join_msg = json.dumps({
+        "action": "join",
+        "player_id": 0
+    })
+
+    server_socket.connect((SERVER_IP, SERVER_PORT))
+
+    # Send a request to join the server
+    server_socket.sendall(join_msg.encode('utf-8'))
+
+    # Retrieve the player's ID
+    response = json.loads(server_socket.recv(2048).decode('utf-8'))
+
+    player_id = response['player_id']
+
 
 # Classes for game menus
 class PauseMenu:
 
     def __init__(self):
         self.menu = pygame_menu.Menu('Paused', 600, 400, theme=pygame_menu.themes.THEME_BLUE)
-        self.menu.add.button('Back to Main Menu', self.pause_menu_to_main_menu)
+        self.menu.add.button('Back to Main Menu', self.return_to_main_menu)
         self.menu.add.button('Resume', self.resume_game)
 
-    def pause_menu_to_main_menu(self):
+    def return_to_main_menu(self):
         global game_running, pause_menu_active, main_menu
         game_running = False
-        end_session()
+        leave_match()
         pause_menu_active = False
         self.menu.disable()
         main_menu.show()
@@ -122,28 +142,24 @@ class PauseMenu:
 class MainMenu:
 
     def __init__(self):
-
         self.menu = pygame_menu.Menu('2v2 Air Hockey', WIDTH, HEIGHT,
                                      theme=pygame_menu.themes.THEME_BLUE)
         self.name_box = self.menu.add.text_input('Player Name :', '')
         self.menu.add.button('Start Match', self.start_the_game)
-        self.menu.add.button('Join A Server', self.join_game)
+        self.menu.add.button('Join A Server', self.main_menu_to_join_match_menu)
         self.menu.add.button('Quit', pygame_menu.events.EXIT)
 
     def get_name(self):
-
         return self.name_box.value()
 
-
     def start_the_game(self):
-
         global game_running, game_session, server_socket, SERVER_PORT, SERVER_IP
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         game_session = server.Server(2, SERVER_IP)
 
         # Run the server in a different thread
-        threading.Thread(target=game_session.start_server, daemon=True).start()
+        threading.Thread(target=game_session.start_server, daemon=False).start()
 
         if wait_for_server() and wait_and_connect():
 
@@ -154,9 +170,7 @@ class MainMenu:
             game_session.stop_server()
             print("Could not connect to server")
 
-
-    def join_game(self):
-
+    def main_menu_to_join_match_menu(self):
         global join_match_menu
 
         self.menu.disable()
@@ -175,7 +189,7 @@ class JoinGameMenu:
         self.server_ip = self.menu.add.text_input('Server IP :', '')
         self.server_port = self.menu.add.text_input('Server Port :', '')
         self.menu.add.button('Join Match', self.join_the_game)
-        self.menu.add.button('Return to Main Menu', self.join_menu_to_main_menu)
+        self.menu.add.button('Return to Main Menu', self.return_to_main_menu)
         self.error_label = self.menu.add.label("")
 
     def join_the_game(self):
@@ -190,7 +204,7 @@ class JoinGameMenu:
             game_running = True
             self.menu.disable()
 
-    def join_menu_to_main_menu(self):
+    def return_to_main_menu(self):
 
         global main_menu
         self.server_port.reset_value()
@@ -542,10 +556,11 @@ class Game:
                         "type": "Paddle",
                         "position": [self.curPaddle.x, self.curPaddle.y]
                     })
-                    # server_socket.send(str.encode(packet))
+                    server_socket.send(str.encode(packet))
 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
+                        leave_match()
                         self.running = False
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         if event.button == 1:
