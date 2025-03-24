@@ -5,13 +5,13 @@ from time import sleep
 import sys
 import os 
 
-sys.path.append(os.path.abspath("../server"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import pygame
 import pygame_menu
 import threading
-# from server import server
-import server
+from server import server
+# import server
 from game import Game
 
 HEIGHT = 720

@@ -1,6 +1,10 @@
 import pygame
 import math
 import json
+import os
+
+client_dir = os.path.dirname(os.path.abspath(__file__))
+
 
 # Initialize Pygame
 pygame.init()
@@ -249,9 +253,9 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
     return None
 
 
-puckCollisionSound = pygame.mixer.Sound("./sounds/puck-sound.wav")
-paddleCollisionSound = pygame.mixer.Sound("./sounds/paddle-sound.wav")
-goalHornSoundEffect = pygame.mixer.Sound("./sounds/goalhorn.mp3")
+puckCollisionSound = pygame.mixer.Sound(os.path.join(client_dir, "./sounds/puck-sound.wav"))
+paddleCollisionSound = pygame.mixer.Sound(os.path.join(client_dir, "./sounds/paddle-sound.wav"))
+goalHornSoundEffect = pygame.mixer.Sound(os.path.join(client_dir, "./sounds/goalhorn.mp3"))
 
 font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
 txtsurface = font.render("0:0", True, (255, 255, 255))
