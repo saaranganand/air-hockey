@@ -1,7 +1,7 @@
 import json
 import socket
 from _thread import *
-
+import uuid
 
 class Server:
     def __init__(self, num_players, host="0.0.0.0", port=0):
@@ -32,7 +32,7 @@ class Server:
 
                 message = json.loads(data)
                 action = message.get('action')
-                player_id = message.get('player_id') # unique
+                player_id = str(uuid.uuid4()) # unique id
 
                 # GAME ACTION CASES
 
@@ -129,7 +129,7 @@ class Server:
                                     "paddle_id": released_paddle
                                 })
                             else:# paddle alr claimed (by other player)
-                                print(f"Player {player_id} failed to release paddle {requested_paddle} (already locked)")
+                                print(f"Player {player_id} failed to release paddle {released_paddle} (already locked)")
                                 ack = json.dumps({
                                     "action": "release_ack",
                                     "status": "failed",
