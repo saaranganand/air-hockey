@@ -471,11 +471,6 @@ class Game:
     def run(self):
         global pause_menu_active, game_running, main_menu, pause_menu, join_match_menu, server_socket
 
-        ack = json.dumps({
-            "action": "Test",
-            "status": "success",
-            "paddle_id": 12345
-        })
         # Init Menus
         pause_menu = PauseMenu()
         main_menu = MainMenu()
@@ -486,8 +481,6 @@ class Game:
             if game_running:
 
                 if pause_menu_active:
-
-                    server_socket.sendall(ack.encode('utf-8'))
 
                     pause_menu.show()
 
