@@ -93,6 +93,7 @@ def leave_match():
     except Exception as e:
         print(e)
 
+
 def get_player_id():
     global server_socket, player_id
 
