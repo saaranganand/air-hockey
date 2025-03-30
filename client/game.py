@@ -91,7 +91,7 @@ def leave_match():
         server_socket.close()
 
     except Exception as e:
-        print(e)
+        print(f"Leave Match Error: {e}")
 
 def get_player_id():
     global server_socket, player_id
