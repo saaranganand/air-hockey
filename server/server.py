@@ -15,6 +15,11 @@ class Server:
         self.players = {}
         self.paddles = {}
         self.lock = allocate_lock()
+        self.game_state = {
+            "paddles": {},
+            "puck": {"position": [1280//2,720//2], "velocity": [0,0]},
+            "score": {"left": 0, "right": 0}
+        }
 
 
     def handle_client(self, client_socket, client_addr):
@@ -54,13 +59,14 @@ class Server:
                             self.players[player_id] = {"paddle_id": paddle_id, "position": None, "client_socket": client_socket}
                             # initialize paddle state having no lock (none implies available)
                             self.paddles[paddle_id] = {"locked_by": None, "position": None}
+                            self.game_state["paddles"][paddle_id] = {"position": [0, 0], "velocity": [0, 0]}
                             print(f"Player {player_id} joined with paddle {paddle_id}")
                         else:
                             # player rejoins/already exists
                             paddle_id = self.players[player_id]["paddle_id"]
 
                     # acknowledge
-                    ack = json.dumps({"action": "join_ack", "player_id": player_id, "paddle_id": paddle_id})
+                    ack = json.dumps({"action": "join_ack", "player_id": player_id, "paddle_id": paddle_id, "game_state": self.game_state})
                     client_socket.sendall(ack.encode('utf-8'))
 
                 # ---
@@ -76,6 +82,7 @@ class Server:
                             "message": "Invalid or missing player_id"
                         })
                         client_socket.sendall(error_msg.encode('utf-8'))
+                        self.broadcast_game_state()
                         continue
 
                     # ---
@@ -83,6 +90,7 @@ class Server:
                     # ---
                     if action == "update_position":
                         # client sends position for its player's paddle
+                        player_id = message.get("player_id")
                         position = message.get("position")
 
                         with self.lock:
@@ -90,17 +98,20 @@ class Server:
                                 paddle_id = self.players[player_id]["paddle_id"]
                                 self.players[player_id]["position"] = position
                                 self.paddles[paddle_id]["position"] = position
+                                self.game_state["paddles"][paddle_id]["position"] = position
                                 print(f"Updated position for player {player_id}'s paddle {paddle_id} to {position}")
 
                         #acknowledge
                         ack = json.dumps({"action": "update_ack", "player_id": player_id})
                         client_socket.sendall(ack.encode('utf-8'))
+                        self.broadcast_game_state()
 
                     # ---
                     # GRAB PADDLE
                     # ---
                     elif action == "grab_paddle":
                         # client wants to lock this paddle
+                        player_id = message.get("player_id")
                         requested_paddle = message.get("paddle_id")
 
                         with self.lock:
@@ -120,6 +131,7 @@ class Server:
                                     ack = json.dumps({
                                         "action": "grab_ack",
                                         "status": "failed",
+                                        "paddle_id": requested_paddle,
                                         "reason": "paddle already locked"
                                     })
                             else: # paddle doesnt exist
@@ -127,15 +139,18 @@ class Server:
                                 ack = json.dumps({
                                     "action": "grab_ack",
                                     "status": "failed",
+                                    "paddle_id": requested_paddle,
                                     "reason": "invalid paddle"
                                 })
                         client_socket.sendall(ack.encode('utf-8'))
+                        self.broadcast_game_state()
 
                     # ---
                     # RELEASE PADDLE
                     # ---
                     elif action == "release_paddle":
                         # client wants to release this paddle
+                        player_id = message.get("player_id")
                         released_paddle = message.get("paddle_id")
 
                         with self.lock:
@@ -149,11 +164,13 @@ class Server:
                                         "status": "success",
                                         "paddle_id": released_paddle
                                     })
+                                # TODO: server needs to retry releasing until it works (no fail case possible)
                                 else:# paddle alr claimed (by other player)
                                     print(f"Player {player_id} failed to release paddle {released_paddle} (already locked)")
                                     ack = json.dumps({
                                         "action": "release_ack",
                                         "status": "failed",
+                                        "paddle_id": released_paddle,
                                         "reason": "you do not own this paddle"
                                     })
                             else: # paddle doesnt exist
@@ -164,6 +181,7 @@ class Server:
                                     "reason": "invalid paddle"
                                 })
                         client_socket.sendall(ack.encode('utf-8'))
+                        self.broadcast_game_state()
 
         except Exception as e:
             print(f"[-] Error: {e}")
@@ -176,9 +194,11 @@ class Server:
                         # remove player and corresponding paddle
                         del self.players[player_id]
                         del self.paddles[paddle_id]
+                        del self.game_state["paddles"][paddle_id]
                 print(f"[-] {client_addr} disconnected")
                 client_socket.close()
                 self.active_clients -= 1
+                self.broadcast_game_state()
 
             # shutdown if no clients
             if self.active_clients == 0:
@@ -187,7 +207,6 @@ class Server:
 
 
     def start_server(self):
-
         try:
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.bind((self.host, self.port))
@@ -209,6 +228,32 @@ class Server:
                         break
         except KeyboardInterrupt:
             print("\nServer shutting down...")
+
+    # send game state to all connected clients
+    def broadcast_game_state(self):
+        with self.lock:
+            game_state_message = json.dumps({
+                "action": "state_update",
+                "game_state": self.game_state
+            })
+            for player in self.players.values():
+                player["client_socket"].sendall(game_state_message.encode('utf-8'))
+
+    # ---
+    # scoring
+    # ---
+    def handle_goal(self, scoring_side):
+        with self.lock:
+            if scoring_side == "left":
+                self.game_state["score"]["left"] += 1
+            elif scoring_side == "right":
+                self.game_state["score"]["right"] += 1
+            self.reset_puck()
+            self.broadcast_game_state()
+
+    def reset_puck(self):
+        self.game_state["puck"]["position"] = [1280 // 2, 720 // 2]
+        self.game_state["puck"]["velocity"] = [0, 0]
 
 
     def stop_server(self):
