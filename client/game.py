@@ -29,7 +29,7 @@ is_paused = False
 game_running = False
 player_name = ""
 player_id = ""
-paddle_id = ""
+# paddle_id = ""
 server_socket = None
 game_session = None
 main_menu = None
@@ -100,7 +100,7 @@ def leave_match():
 
 
 def get_player_id():
-    global server_socket, player_id, paddle_id
+    global server_socket, player_id
 
     join_msg = json.dumps({
         "action": "join",
@@ -116,7 +116,7 @@ def get_player_id():
     response = json.loads(server_socket.recv(2048).decode('utf-8'))
 
     player_id = response['player_id']
-    paddle_id = response['paddle_id']
+
 
 # Classes for game menus
 class PauseMenu:
@@ -471,7 +471,7 @@ txtsurface = font.render("0:0", True, (255, 255, 255))
 class Game:
     def __init__(self):
         self.paddles = []
-
+        self.paddle_ids = {}
         # if serverSocket is None:
         #     raise Exception("Server socket is None")
         #
@@ -532,7 +532,8 @@ class Game:
             if game_running:
 
                 if not self.isListeningForGameState:
-                    self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+                    #self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+
                     threading.Thread(target=self.listenForGameState, daemon=False).start()
                     self.isListeningForGameState = True
 
@@ -545,6 +546,13 @@ class Game:
                     if len(self.gameStateBuffer) > 0:
 
                         new_state = self.gameStateBuffer.popleft()
+
+                        for paddle_id in new_state['game_state']['paddles']:
+                            print(f"Paddle ID: {paddle_id}")
+                            if self.paddle_ids.get(paddle_id) is None:
+                                self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+                                self.paddle_ids[paddle_id] = True
+
                         print(new_state)
 
                 pygame.time.delay(30)  # Control game speed

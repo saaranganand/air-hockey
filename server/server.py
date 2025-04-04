@@ -68,6 +68,7 @@ class Server:
                     # acknowledge
                     ack = json.dumps({"action": "join_ack", "player_id": player_id, "paddle_id": paddle_id, "game_state": self.game_state})
                     client_socket.sendall(ack.encode('utf-8'))
+                    self.broadcast_game_state()
 
                 # ---
                 # Other actions (besides "join")
