@@ -3,6 +3,8 @@ import threading
 import time
 import sys
 import os
+from collections import deque
+from _thread import *
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 client_dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,11 +29,14 @@ is_paused = False
 game_running = False
 player_name = ""
 player_id = ""
+# paddle_id = ""
 server_socket = None
 game_session = None
 main_menu = None
 pause_menu = None
 join_match_menu = None
+buffer_lock = allocate_lock()
+
 
 # Create game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -92,6 +97,7 @@ def leave_match():
 
     except Exception as e:
         print(f"Leave Match Error: {e}")
+
 
 def get_player_id():
     global server_socket, player_id
@@ -219,7 +225,7 @@ class JoinGameMenu:
 
 
 class Paddle:
-    def __init__(self, x, y, color):
+    def __init__(self, x, y, color, paddle_id):
         self.x = x
         self.y = y
         self.radius = 40
@@ -230,7 +236,8 @@ class Paddle:
         self.curSpeed = 0 
         self.friction = 0.97
         self.isGrabbed = False
-    
+        self.paddleID = paddle_id
+
     def move(self):
         if not self.isGrabbed:
             self.x += self.vx
@@ -460,13 +467,11 @@ goalHornSoundEffect = pygame.mixer.Sound(os.path.join(client_dir, "./sounds/goal
 font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
 txtsurface = font.render("0:0", True, (255, 255, 255))
 
+
 class Game:
     def __init__(self):
-        self.paddles = [
-            Paddle(100, HEIGHT // 2, (0, 0, 255)),
-            Paddle(WIDTH - 100, HEIGHT // 2, (255, 0, 0))
-        ]
-
+        self.paddles = []
+        self.paddle_ids = {}
         # if serverSocket is None:
         #     raise Exception("Server socket is None")
         #
@@ -481,8 +486,35 @@ class Game:
         self.rightGoal = Goal("right")
         self.leftScore = 0
         self.leftGoal = Goal("left")
+        self.gameStateBuffer = deque(maxlen=10)
+        self.isListeningForGameState = False
 
+    def listenForGameState(self):
 
+        while game_running:
+
+            try:
+
+                if server_socket is None:
+                    break
+
+                game_state = json.loads(server_socket.recv(2048).decode("utf-8"))
+
+                # Only the most current state of the game is saved
+                if game_state['action'] == "state_update":
+
+                    with buffer_lock:
+
+                        if len(self.gameStateBuffer) > 0:
+
+                            self.gameStateBuffer.popleft()
+
+                        self.gameStateBuffer.append(game_state)
+
+            except Exception as e:
+
+                if not game_running:
+                    break
 
         pygame.font.init()
         pygame.mixer.init()
@@ -499,9 +531,29 @@ class Game:
 
             if game_running:
 
+                if not self.isListeningForGameState:
+                    #self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+
+                    threading.Thread(target=self.listenForGameState, daemon=False).start()
+                    self.isListeningForGameState = True
+
                 if pause_menu_active:
 
                     pause_menu.show()
+
+                with buffer_lock:
+
+                    if len(self.gameStateBuffer) > 0:
+
+                        new_state = self.gameStateBuffer.popleft()
+
+                        for paddle_id in new_state['game_state']['paddles']:
+                            print(f"Paddle ID: {paddle_id}")
+                            if self.paddle_ids.get(paddle_id) is None:
+                                self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+                                self.paddle_ids[paddle_id] = True
+
+                        print(new_state)
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)
