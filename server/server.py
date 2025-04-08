@@ -96,11 +96,13 @@ class Server:
 
                         with self.lock:
                             if player_id in self.players:
-                                paddle_id = self.players[player_id]["paddle_id"]
+                                # paddle_id = self.players[player_id]["paddle_id"]
+                                paddle_id = message.get("id")
                                 self.players[player_id]["position"] = position
                                 self.paddles[paddle_id]["position"] = position
                                 self.game_state["paddles"][paddle_id]["position"] = position
-                                print(f"Updated position for player {player_id}'s paddle {paddle_id} to {position}")
+                                print(f"Server: Updated position for player {player_id}'s paddle {paddle_id} to {position}")
+
 
                         #acknowledge
                         ack = json.dumps({"action": "update_ack", "player_id": player_id})
@@ -233,12 +235,15 @@ class Server:
     # send game state to all connected clients
     def broadcast_game_state(self):
         with self.lock:
-            game_state_message = json.dumps({
-                "action": "state_update",
-                "game_state": self.game_state
-            })
-            for player in self.players.values():
-                player["client_socket"].sendall(game_state_message.encode('utf-8'))
+            try:
+                game_state_message = json.dumps({
+                    "action": "state_update",
+                    "game_state": self.game_state
+                })
+                for player in self.players.values():
+                    player["client_socket"].sendall(game_state_message.encode('utf-8'))
+            except Exception as e:
+                print("Something went wrong broadcasting:", e)
 
     # ---
     # scoring

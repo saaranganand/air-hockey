@@ -360,7 +360,6 @@ def checkCollisionPuckAndPaddle(paddle, puck):
     if dist < paddle.radius + puck.radius:
         if dist == 0:
             dist = 10e-6 # prevent division by 0
-        print(dist)
         if puckCollisionSound.get_num_channels() == 0:
             puckCollisionSound.play(maxtime=500)
 
@@ -498,21 +497,32 @@ class Game:
                 if server_socket is None:
                     break
 
-                game_state = json.loads(server_socket.recv(2048).decode("utf-8"))
+                game_states = server_socket.recv(2048).decode("utf-8").split('}{')
+                
+                # If more than 1 JSON object was received
+                if len(game_states) > 1:
+                    for i in range(len(game_states)-1):
+                        game_states[i] += '}'
+
+                    game_states[-1] = '{' + game_states[-1]
+
 
                 # Only the most current state of the game is saved
-                if game_state['action'] == "state_update":
+                # game_state = json.loads(game_state)
+                for game_state in game_states:
+                    game_state = json.loads(game_state)
+                    if game_state['action'] == "state_update":
 
-                    with buffer_lock:
+                        with buffer_lock:
 
-                        if len(self.gameStateBuffer) > 0:
+                            if len(self.gameStateBuffer) > 0:
 
-                            self.gameStateBuffer.popleft()
+                                self.gameStateBuffer.popleft()
 
-                        self.gameStateBuffer.append(game_state)
+                            self.gameStateBuffer.append(game_state)
 
             except Exception as e:
-
+                print("Something went wrong:", e)
                 if not game_running:
                     break
 
@@ -548,12 +558,12 @@ class Game:
                         new_state = self.gameStateBuffer.popleft()
 
                         for paddle_id in new_state['game_state']['paddles']:
-                            print(f"Paddle ID: {paddle_id}")
+                            # print(f"Paddle ID: {paddle_id}")
                             if self.paddle_ids.get(paddle_id) is None:
                                 self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
                                 self.paddle_ids[paddle_id] = True
 
-                        print(new_state)
+                        # print(new_state)
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)
@@ -604,9 +614,14 @@ class Game:
                     self.leftScore += 1
 
                 if self.curPaddle:
+                    # Send paddle information to server
                     packet = json.dumps({
+                        "player_id": player_id,
                         "type": "Paddle",
-                        "position": [self.curPaddle.x, self.curPaddle.y]
+                        "action": "update_position",
+                        "id": self.curPaddle.paddleID,
+                        "position": [self.curPaddle.x, self.curPaddle.y],
+                        "velocity": [self.curPaddle.vx, self.curPaddle.vy]
                     })
                     server_socket.send(str.encode(packet))
 
@@ -624,7 +639,7 @@ class Game:
                             self.mousedown = True
                     elif event.type == pygame.MOUSEBUTTONUP:
                         if event.button == 1:
-                            print(self.curPaddle)
+                            # print(self.curPaddle)
                             if self.curPaddle:
                                 self.curPaddle.isGrabbed = False
                                 self.curPaddle = None
