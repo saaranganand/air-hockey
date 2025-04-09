@@ -26,7 +26,7 @@ class Server:
         }
         # Simulation
         self.sim = Simulator()
-        self.simDelta = 1000 / 60
+        self.simDelta = 1000 / 30
         self.broadcastDelta = 1000 / 60
         self.lastSim = -float('inf')
         self.lastBroadcast = -float('inf')

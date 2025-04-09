@@ -35,14 +35,24 @@ class Simulator:
             "score": self.score
         }
 
+        collisions = [] 
 
         for paddle_id in self.paddles:
             paddle = self.paddles[paddle_id]
             paddle.move()
+            checkCollisionPuckAndPaddle(paddle, self.puck)
+            
+            if paddle not in collisions:
+                for paddle2 in self.paddles.values():
+                    if paddle2 != paddle:
+                        collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
+
             game_state['paddles'][paddle_id] = {
                 'position': [paddle.x, paddle.y],
-                'velocity': [paddle.vx, paddle.vy]
+                'velocity': [paddle.vx, paddle.vy],
+                'isGrabbed': paddle.isGrabbed
             }
+
 
         if action:
             for action_type in action.keys():
@@ -59,6 +69,12 @@ class Simulator:
                     vx, vy = tuple(action['velocity'])
                     paddle = self.paddles[paddle_id]
                     paddle.update(x, y, vx, vy)
+                elif action_type == 'grab':
+                    paddle_id = action
+                    self.paddles[paddle_id].isGrabbed = True
+                elif action_type == 'release':
+                    paddle_id = action
+                    self.paddles[paddle_id].isGrabbed = False 
 
         self.puck.move(simDelta)
         game_state['puck'] = {

@@ -582,6 +582,7 @@ class Game:
                                         paddle_info = new_state['game_state']['paddles'][paddle_id]
                                         paddle.x, paddle.y = tuple(paddle_info.get('position'))
                                         paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
+                                        paddle.isGrabbed = paddle_info.get('isGrabbed')
                         for puck in new_state['game_state']['puck']:
                             pass
                         for score in new_state['game_state']['score']:
