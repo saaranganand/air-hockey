@@ -37,7 +37,6 @@ pause_menu = None
 join_match_menu = None
 buffer_lock = allocate_lock()
 
-
 # Create game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Air Hockey")
@@ -64,6 +63,7 @@ def wait_for_server():
 
 def wait_and_connect():
     global SERVER_PORT, SERVER_IP, server_socket
+    print(f"wait and connect trying to connect to {SERVER_IP}:{SERVER_PORT}")
 
     # Connect to the server. If it fails after 5 attempts, time out
     for i in range(5):
@@ -75,8 +75,12 @@ def wait_and_connect():
                 get_player_id()
 
                 return True
+            else:
+                print("Server socket uninitialized")
+                return False
 
         except Exception as e:
+            print(e)
             time.sleep(0.3)
 
     return False
@@ -107,7 +111,8 @@ def get_player_id():
         "player_id": 0
     })
 
-    server_socket.connect((SERVER_IP, SERVER_PORT))
+    host = socket.gethostbyname(SERVER_IP)
+    server_socket.connect((host, SERVER_PORT))
 
     # Send a request to join the server
     server_socket.sendall(join_msg.encode('utf-8'))
@@ -186,7 +191,6 @@ class MainMenu:
         self.menu.enable()
         self.menu.mainloop(screen)
 
-
 class JoinGameMenu:
 
     def __init__(self):
@@ -206,9 +210,12 @@ class JoinGameMenu:
         SERVER_IP = self.server_ip.get_value()
         SERVER_PORT = int(self.server_port.get_value())
 
+        print(f"trying to connect to {SERVER_IP}:{SERVER_PORT}")
         if wait_and_connect():
             game_running = True
             self.menu.disable()
+        else:
+            print("Couldn't connect")
 
     def return_to_main_menu(self):
 
@@ -298,7 +305,7 @@ class Puck:
         self.y = HEIGHT // 2
         self.radius = 30
         self.color = tuple([0, 220, 50])
-        self.vx = 0  # Initial velocity
+        self.vx = 0
         self.vy = 0
         self.friction = 0.99
         self.maxSpeed = 25
@@ -360,7 +367,6 @@ def checkCollisionPuckAndPaddle(paddle, puck):
     if dist < paddle.radius + puck.radius:
         if dist == 0:
             dist = 10e-6 # prevent division by 0
-        print(dist)
         if puckCollisionSound.get_num_channels() == 0:
             puckCollisionSound.play(maxtime=500)
 
@@ -413,6 +419,10 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
         # distances between paddles
         dx = paddle1.x - paddle2.x
         dy = paddle1.y - paddle2.y
+        
+        # avoid division by 0
+        if dx == 0 or dy == 0:
+            return
 
         # normal vector
         nx = dx / dist
@@ -486,7 +496,7 @@ class Game:
         self.rightGoal = Goal("right")
         self.leftScore = 0
         self.leftGoal = Goal("left")
-        self.gameStateBuffer = deque(maxlen=10)
+        self.gameStateBuffer = deque(maxlen=1000)
         self.isListeningForGameState = False
 
     def listenForGameState(self):
@@ -498,21 +508,34 @@ class Game:
                 if server_socket is None:
                     break
 
-                game_state = json.loads(server_socket.recv(2048).decode("utf-8"))
+                game_states = server_socket.recv(2048).decode("utf-8").split('}{')
+                
+                # If more than 1 JSON object was received
+                if len(game_states) > 1:
+                    for i in range(len(game_states)-1):
+                        game_states[i] += '}'
+
+                    game_states[-1] = '{' + game_states[-1]
+
 
                 # Only the most current state of the game is saved
-                if game_state['action'] == "state_update":
+                # game_state = json.loads(game_state)
+                for game_state in game_states:
+                    # print(game_state)
+                    game_state = json.loads(game_state)
+                    if game_state['action'] == "state_update":
 
-                    with buffer_lock:
+                        with buffer_lock:
 
-                        if len(self.gameStateBuffer) > 0:
+                            if len(self.gameStateBuffer) > 0:
 
-                            self.gameStateBuffer.popleft()
+                                self.gameStateBuffer.popleft()
 
-                        self.gameStateBuffer.append(game_state)
+                            self.gameStateBuffer.append(game_state)
 
+            except (BrokenPipeError, OSError):
+                return
             except Exception as e:
-
                 if not game_running:
                     break
 
@@ -546,22 +569,41 @@ class Game:
                     if len(self.gameStateBuffer) > 0:
 
                         new_state = self.gameStateBuffer.popleft()
+                        game_state = new_state.get('game_state')
+        
+                        if game_state:
+                            for paddle_id in game_state['paddles']:
+                                # print(f"Paddle ID: {paddle_id}")
+                                if self.paddle_ids.get(paddle_id) is None:
+                                    self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+                                    self.paddle_ids[paddle_id] = True
+                                else:
+                                    for paddle in self.paddles:
+                                        # Update position on client side if they are not holding the paddle
+                                        if paddle.paddleID == paddle_id:
+                                            paddle_info = game_state['paddles'][paddle_id]
+                                            if not (self.curPaddle and self.curPaddle.paddleID == paddle_id):
+                                                paddle.x, paddle.y = tuple(paddle_info.get('position'))
+                                                paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
+                                                paddle.isGrabbed = paddle_info.get('isGrabbed')
 
-                        for paddle_id in new_state['game_state']['paddles']:
-                            print(f"Paddle ID: {paddle_id}")
-                            if self.paddle_ids.get(paddle_id) is None:
-                                self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
-                                self.paddle_ids[paddle_id] = True
+                            puck_info = game_state.get('puck')
+                            if puck_info:
+                                self.puck.x, self.puck.y = tuple(puck_info['position'])
+                                self.puck.vx, self.puck.vy = tuple(puck_info['velocity'])
 
-                        print(new_state)
+                            score_info = game_state.get('score')
+                            if score_info:
+                                self.leftScore = score_info['left']
+                                self.rightScore = score_info['right']
+
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)
                 txtsurface = font.render(f"{self.leftScore}:{self.rightScore}", False, (255, 255, 255))
                 screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
-
-                # keys = pygame.key.get_pressed()
-                # mouseX, mouseY = pygame.mouse.get_pos()
+                txtsurface2 = font.render(f"Connected to {SERVER_IP}:{SERVER_PORT}", False, (255, 255, 255))
+                screen.blit(txtsurface2, (WIDTH // 4 - txtsurface2.get_width() // 2, 20 - txtsurface2.get_height() // 2))
 
                 collisions = []
 
@@ -588,25 +630,15 @@ class Game:
                 self.leftGoal.draw()
                 self.rightGoal.draw()
 
-                if self.leftGoal.checkCollisionWithPuck(self.puck):
-                    self.leftGoal.goal()
-                    self.puck.x = WIDTH // 2
-                    self.puck.y = HEIGHT // 2
-                    self.puck.vx = 0
-                    self.puck.vy = 0
-                    self.rightScore += 1
-                if self.rightGoal.checkCollisionWithPuck(self.puck):
-                    self.rightGoal.goal()
-                    self.puck.x = WIDTH // 2
-                    self.puck.y = HEIGHT // 2
-                    self.puck.vx = 0
-                    self.puck.vy = 0
-                    self.leftScore += 1
-
                 if self.curPaddle:
+                    # Send paddle information to server
                     packet = json.dumps({
+                        "player_id": player_id,
                         "type": "Paddle",
-                        "position": [self.curPaddle.x, self.curPaddle.y]
+                        "action": "update_position",
+                        "id": self.curPaddle.paddleID,
+                        "position": [self.curPaddle.x, self.curPaddle.y],
+                        "velocity": [self.curPaddle.vx, self.curPaddle.vy]
                     })
                     server_socket.send(str.encode(packet))
 
@@ -624,7 +656,7 @@ class Game:
                             self.mousedown = True
                     elif event.type == pygame.MOUSEBUTTONUP:
                         if event.button == 1:
-                            print(self.curPaddle)
+                            # print(self.curPaddle)
                             if self.curPaddle:
                                 self.curPaddle.isGrabbed = False
                                 self.curPaddle = None
