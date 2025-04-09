@@ -169,6 +169,7 @@ class Server:
                         requested_paddle = message.get("paddle_id")
 
                         with self.lock:
+                            print("Adding grab info to action")
                             if requested_paddle in self.paddles: # paddle exists
                                 if self.paddles[requested_paddle]["locked_by"] is None: # paddle not alr claimed
                                     self.paddles[requested_paddle]["locked_by"] = player_id
@@ -180,7 +181,7 @@ class Server:
                                         "status": "success",
                                         "paddle_id": requested_paddle
                                     })
-                                    self.actionQueue.append({"grab": requested_paddle})
+                                    self.actionQueue.append({"grab": {'success': True, 'paddle': requested_paddle, 'player': player_id}})
                                 else: # paddle alr claimed
                                     print(f"Player {player_id} failed to grab paddle {requested_paddle} (already locked)")
                                     ack = json.dumps({
@@ -189,6 +190,7 @@ class Server:
                                         "paddle_id": requested_paddle,
                                         "reason": "paddle already locked"
                                     })
+                                    self.actionQueue.append({'grab': {'success': False, 'paddle': requested_paddle, 'player_id': player_id}})
                             else: # paddle doesnt exist
                                 print(f"Player {player_id} requested to grab invalid paddle")
                                 ack = json.dumps({
@@ -197,6 +199,7 @@ class Server:
                                     "paddle_id": requested_paddle,
                                     "reason": "invalid paddle"
                                 })
+                                self.actionQueue.append({'grab': {'success': False, 'paddle': requested_paddle, 'player_id': player_id}})
                         client_socket.sendall(ack.encode('utf-8'))
                         # self.broadcast_game_state()
 

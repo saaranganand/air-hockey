@@ -39,6 +39,7 @@ class Simulator:
 
         for paddle_id in self.paddles:
             paddle = self.paddles[paddle_id]
+            paddle.curSpeed = math.sqrt(paddle.vy**2 + paddle.vx**2)
             paddle.move()
             checkCollisionPuckAndPaddle(paddle, self.puck)
             
@@ -70,11 +71,12 @@ class Simulator:
                     paddle = self.paddles[paddle_id]
                     paddle.update(x, y, vx, vy)
                 elif action_type == 'grab':
-                    paddle_id = action
-                    self.paddles[paddle_id].isGrabbed = True
+                    paddle_info = action
+                    if paddle_info.get('success'):
+                        print(paddle_info.get('paddle'))
+                        self.paddles[paddle_info.get('paddle')].isGrabbed = True
                 elif action_type == 'release':
-                    paddle_id = action
-                    self.paddles[paddle_id].isGrabbed = False 
+                    self.paddles[action].isGrabbed = False 
 
         self.puck.move(simDelta)
         for goal in self.goals:
@@ -184,6 +186,8 @@ class Goal:
         return puckDistanceX - puck.radius <= 0 and puck.y - puck.radius > self.y and puck.y + puck.radius < 2 * self.y
             
 
+collisionDamper = 0.8
+
 def checkCollisionPuckAndPaddle(paddle, puck):
     dist = math.hypot(paddle.x - puck.x, paddle.y - puck.y)
     if dist < paddle.radius + puck.radius:
@@ -212,8 +216,8 @@ def checkCollisionPuckAndPaddle(paddle, puck):
         dpNorm1 = paddle.vx * nx + paddle.vy * ny
         dpNorm2 = puck.vx * nx + puck.vy * ny
         if paddle.isGrabbed:
-            puck.vx += paddle.curSpeed * math.cos(angle)
-            puck.vy += paddle.curSpeed * math.sin(angle)
+            puck.vx += paddle.curSpeed * math.cos(angle) * collisionDamper
+            puck.vy += paddle.curSpeed * math.sin(angle) * collisionDamper
         else:
             # Swap normal velocities
             paddle.vx = tx * dpTan1 + nx * dpNorm2

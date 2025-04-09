@@ -533,7 +533,8 @@ class Game:
                 for game_state in game_states:
                     # print(game_state)
                     game_state = json.loads(game_state)
-                    if game_state['action'] == "state_update":
+                    action = game_state.get('action')
+                    if action == "state_update":
 
                         with buffer_lock:
 
@@ -607,6 +608,10 @@ class Game:
                                 self.leftScore = score_info['left']
                                 self.rightScore = score_info['right']
 
+                            grab_info = score_info.get('grab')
+                            if grab_info:
+                                print('Here')
+
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)
@@ -634,8 +639,6 @@ class Game:
                             if paddle2 != paddle:
                                 collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
 
-                # paddle1.draw(screen)
-                # paddle2.draw(screen)
                 self.puck.draw(screen)
                 self.leftGoal.draw()
                 self.rightGoal.draw()
@@ -665,14 +668,27 @@ class Game:
                         if event.button == 1:
                             for paddle in self.paddles:
                                 if paddle.mouseInRadius(paddle):
+                                    packet = json.dumps({
+                                        "action": "grab_paddle",
+                                        "player_id": player_id,
+                                        "paddle_id": paddle.paddleID
+                                    })
+                                    
+                                    server_socket.send(str.encode(packet))
                                     self.curPaddle = paddle
                                     self.curPaddle.isGrabbed = True
                                     break
                             self.mousedown = True
                     elif event.type == pygame.MOUSEBUTTONUP:
                         if event.button == 1:
-                            # print(self.curPaddle)
                             if self.curPaddle:
+                                packet = json.dumps({
+                                    "action": "release_paddle",
+                                    "player_id": player_id,
+                                    "paddle_id": self.curPaddle.paddleID
+                                })
+
+                                server_socket.send(str.encode(packet))
                                 self.curPaddle.isGrabbed = False
                                 self.curPaddle = None
                             self.mousedown = False
