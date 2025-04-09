@@ -77,6 +77,15 @@ class Simulator:
                     self.paddles[paddle_id].isGrabbed = False 
 
         self.puck.move(simDelta)
+        for goal in self.goals:
+            if goal.checkCollisionWithPuck(self.puck):
+                self.score[goal.side] += 1 
+                self.puck.x = WIDTH // 2
+                self.puck.y = HEIGHT // 2
+                self.puck.vx, self.puck.vy = (0, 0)
+        
+        game_state['score'] = {'left': self.score['left'], 'right': self.score['right']}
+
         game_state['puck'] = {
             'position': [self.puck.x, self.puck.y],
             'velocity': [self.puck.vx, self.puck.vy]
@@ -164,6 +173,7 @@ class Goal:
         self.width = 10 
         self.height = HEIGHT // 3 
         self.y = HEIGHT // 3
+        self.side = side
         if side == "left":
             self.x = 0 
         elif side == "right":

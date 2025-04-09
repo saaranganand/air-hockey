@@ -592,8 +592,10 @@ class Game:
                                 self.puck.x, self.puck.y = tuple(puck_info['position'])
                                 self.puck.vx, self.puck.vy = tuple(puck_info['velocity'])
 
-                            for score in new_state['game_state']['score']:
-                                pass
+                            score_info = game_state.get('score')
+                            if score_info:
+                                self.leftScore = score_info['left']
+                                self.rightScore = score_info['right']
 
 
                 pygame.time.delay(30)  # Control game speed
@@ -602,9 +604,6 @@ class Game:
                 screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
                 txtsurface2 = font.render(f"Connected to {SERVER_IP}:{SERVER_PORT}", False, (255, 255, 255))
                 screen.blit(txtsurface2, (WIDTH // 4 - txtsurface2.get_width() // 2, 20 - txtsurface2.get_height() // 2))
-
-                # keys = pygame.key.get_pressed()
-                # mouseX, mouseY = pygame.mouse.get_pos()
 
                 collisions = []
 
@@ -630,21 +629,6 @@ class Game:
                 self.puck.draw(screen)
                 self.leftGoal.draw()
                 self.rightGoal.draw()
-
-                if self.leftGoal.checkCollisionWithPuck(self.puck):
-                    self.leftGoal.goal()
-                    self.puck.x = WIDTH // 2
-                    self.puck.y = HEIGHT // 2
-                    self.puck.vx = 0
-                    self.puck.vy = 0
-                    self.rightScore += 1
-                if self.rightGoal.checkCollisionWithPuck(self.puck):
-                    self.rightGoal.goal()
-                    self.puck.x = WIDTH // 2
-                    self.puck.y = HEIGHT // 2
-                    self.puck.vx = 0
-                    self.puck.vy = 0
-                    self.leftScore += 1
 
                 if self.curPaddle:
                     # Send paddle information to server
