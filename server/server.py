@@ -87,9 +87,7 @@ class Server:
                             # paddle id is same as player id
                             paddle_id = player_id
                             self.players[player_id] = {"paddle_id": paddle_id, "position": None, "client_socket": client_socket}
-                            # initialize paddle state having no lock (none implies available)
                             self.paddles[paddle_id] = {"locked_by": None, "position": None}
-                            # self.game_state["paddles"][paddle_id] = {"position": [0, 0], "velocity": [0, 0]}
                             self.paddleInfo[paddle_id] = {
                                 'position': [1280 // 4, 720 // 2],
                                 'velocity': [0, 0]
@@ -335,5 +333,5 @@ class Server:
 
 
 if __name__ == "__main__":
-    server = Server(num_players=2) #initalized with 2 players
+    server = Server(num_players=4) 
     server.start_server()
