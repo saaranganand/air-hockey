@@ -18,6 +18,16 @@ import pygame_menu
 # Initialize Pygame
 pygame.init()
 
+def get_local_ip():
+    # Connect to an external IP and get the socket's own address
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        try:
+            # Doesn't have to be reachable — just to figure out the local IP
+            s.connect(('8.8.8.8', 80))
+            return s.getsockname()[0]
+        except Exception:
+            return '127.0.0.1'  # fallback
+
 # Constants
 WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
@@ -167,7 +177,7 @@ class MainMenu:
         global game_running, game_session, server_socket, SERVER_PORT, SERVER_IP
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        SERVER_IP = '192.168.80.182' # socket.gethostbyname(socket.gethostname()) 
+        SERVER_IP = get_local_ip()
         game_session = server.Server(4, SERVER_IP)
 
         # Run the server in a different thread
@@ -208,7 +218,7 @@ class JoinGameMenu:
         global game_running, SERVER_IP, SERVER_PORT, server_socket
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        # SERVER_IP = self.server_ip.get_value()
+        SERVER_IP = self.server_ip.get_value()
         SERVER_PORT = int(self.server_port.get_value())
 
         print(f"trying to connect to {SERVER_IP}:{SERVER_PORT}")
@@ -483,10 +493,6 @@ class Game:
     def __init__(self):
         self.paddles = []
         self.paddle_ids = {}
-        # if serverSocket is None:
-        #     raise Exception("Server socket is None")
-        #
-        # self.serverSocket = serverSocket
         self.puck = Puck()
 
         self.mousedown = False
@@ -678,3 +684,4 @@ class Game:
             pygame.display.update()
 
         pygame.quit()
+
