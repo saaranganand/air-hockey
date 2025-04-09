@@ -37,7 +37,6 @@ pause_menu = None
 join_match_menu = None
 buffer_lock = allocate_lock()
 
-
 # Create game window
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Air Hockey")
@@ -64,6 +63,7 @@ def wait_for_server():
 
 def wait_and_connect():
     global SERVER_PORT, SERVER_IP, server_socket
+    print(f"wait and connect trying to connect to {SERVER_IP}:{SERVER_PORT}")
 
     # Connect to the server. If it fails after 5 attempts, time out
     for i in range(5):
@@ -75,8 +75,12 @@ def wait_and_connect():
                 get_player_id()
 
                 return True
+            else:
+                print("Server socket uninitialized")
+                return False
 
         except Exception as e:
+            print(e)
             time.sleep(0.3)
 
     return False
@@ -107,7 +111,8 @@ def get_player_id():
         "player_id": 0
     })
 
-    server_socket.connect((SERVER_IP, SERVER_PORT))
+    host = socket.gethostbyname(SERVER_IP)
+    server_socket.connect((host, SERVER_PORT))
 
     # Send a request to join the server
     server_socket.sendall(join_msg.encode('utf-8'))
@@ -186,7 +191,6 @@ class MainMenu:
         self.menu.enable()
         self.menu.mainloop(screen)
 
-
 class JoinGameMenu:
 
     def __init__(self):
@@ -206,9 +210,12 @@ class JoinGameMenu:
         SERVER_IP = self.server_ip.get_value()
         SERVER_PORT = int(self.server_port.get_value())
 
+        print(f"trying to connect to {SERVER_IP}:{SERVER_PORT}")
         if wait_and_connect():
             game_running = True
             self.menu.disable()
+        else:
+            print("Couldn't connect")
 
     def return_to_main_menu(self):
 
@@ -298,7 +305,7 @@ class Puck:
         self.y = HEIGHT // 2
         self.radius = 30
         self.color = tuple([0, 220, 50])
-        self.vx = 0  # Initial velocity
+        self.vx = 0
         self.vy = 0
         self.friction = 0.99
         self.maxSpeed = 25
@@ -412,6 +419,10 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
         # distances between paddles
         dx = paddle1.x - paddle2.x
         dy = paddle1.y - paddle2.y
+        
+        # avoid division by 0
+        if dx == 0 or dy == 0:
+            return
 
         # normal vector
         nx = dx / dist
@@ -485,7 +496,7 @@ class Game:
         self.rightGoal = Goal("right")
         self.leftScore = 0
         self.leftGoal = Goal("left")
-        self.gameStateBuffer = deque(maxlen=10)
+        self.gameStateBuffer = deque(maxlen=1000)
         self.isListeningForGameState = False
 
     def listenForGameState(self):
@@ -562,6 +573,18 @@ class Game:
                             if self.paddle_ids.get(paddle_id) is None:
                                 self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
                                 self.paddle_ids[paddle_id] = True
+                            else:
+                                for paddle in self.paddles:
+                                    print(paddle.paddleID, paddle_id)
+                                    if paddle.paddleID == paddle_id:
+                                        print("Here")
+                                        paddle_info = new_state['game_state']['paddles'][paddle_id]
+                                        paddle.x, paddle.y = tuple(paddle_info.get('position'))
+                                        paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
+                        for puck in new_state['game_state']['puck']:
+                            pass
+                        for score in new_state['game_state']['score']:
+                            pass
 
                         # print(new_state)
 
@@ -569,6 +592,8 @@ class Game:
                 screen.fill(BLACK)
                 txtsurface = font.render(f"{self.leftScore}:{self.rightScore}", False, (255, 255, 255))
                 screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
+                txtsurface2 = font.render(f"Connected to {SERVER_IP}:{SERVER_PORT}", False, (255, 255, 255))
+                screen.blit(txtsurface2, (WIDTH // 4 - txtsurface2.get_width() // 2, 20 - txtsurface2.get_height() // 2))
 
                 # keys = pygame.key.get_pressed()
                 # mouseX, mouseY = pygame.mouse.get_pos()

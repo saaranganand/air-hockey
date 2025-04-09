@@ -93,15 +93,18 @@ class Server:
                         # client sends position for its player's paddle
                         player_id = message.get("player_id")
                         position = message.get("position")
+                        velocity = message.get("velocity")
 
                         with self.lock:
-                            if player_id in self.players:
-                                # paddle_id = self.players[player_id]["paddle_id"]
-                                paddle_id = message.get("id")
-                                self.players[player_id]["position"] = position
-                                self.paddles[paddle_id]["position"] = position
-                                self.game_state["paddles"][paddle_id]["position"] = position
-                                print(f"Server: Updated position for player {player_id}'s paddle {paddle_id} to {position}")
+                            # if player_id in self.players:
+                            paddle_id = message.get("id")
+                            paddle_id = message.get("id")
+                            self.players[player_id]["position"] = position
+                            self.paddles[paddle_id]["position"] = position
+                            self.paddles[paddle_id]["velocity"] = velocity
+                            self.game_state["paddles"][paddle_id]["position"] = position
+                            self.game_state["paddles"][paddle_id]["velocity"] = velocity 
+                            print(f"Server: Updated position for player {player_id}'s paddle {paddle_id} to {position}")
 
 
                         #acknowledge
