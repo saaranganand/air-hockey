@@ -167,7 +167,8 @@ class MainMenu:
         global game_running, game_session, server_socket, SERVER_PORT, SERVER_IP
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        game_session = server.Server(2, SERVER_IP)
+        SERVER_IP = '192.168.80.182' # socket.gethostbyname(socket.gethostname()) 
+        game_session = server.Server(4, SERVER_IP)
 
         # Run the server in a different thread
         threading.Thread(target=game_session.start_server, daemon=False).start()
@@ -207,7 +208,7 @@ class JoinGameMenu:
         global game_running, SERVER_IP, SERVER_PORT, server_socket
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        SERVER_IP = self.server_ip.get_value()
+        # SERVER_IP = self.server_ip.get_value()
         SERVER_PORT = int(self.server_port.get_value())
 
         print(f"trying to connect to {SERVER_IP}:{SERVER_PORT}")
@@ -499,6 +500,9 @@ class Game:
         self.gameStateBuffer = deque(maxlen=1000)
         self.isListeningForGameState = False
 
+        self.lastPacketSent = -float('inf')
+        self.packetDelta = 1000 / 30
+
     def listenForGameState(self):
 
         while game_running:
@@ -640,7 +644,12 @@ class Game:
                         "position": [self.curPaddle.x, self.curPaddle.y],
                         "velocity": [self.curPaddle.vx, self.curPaddle.vy]
                     })
-                    server_socket.send(str.encode(packet))
+
+                    curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
+                    delta = (curTime - self.lastPacketSent) * 1000
+                    if delta > self.packetDelta:
+                        server_socket.send(str.encode(packet))
+                        self.lastPacketSent = curTime
 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
