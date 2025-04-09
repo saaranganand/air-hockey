@@ -569,26 +569,32 @@ class Game:
                     if len(self.gameStateBuffer) > 0:
 
                         new_state = self.gameStateBuffer.popleft()
+                        game_state = new_state.get('game_state')
+        
+                        if game_state:
+                            for paddle_id in game_state['paddles']:
+                                # print(f"Paddle ID: {paddle_id}")
+                                if self.paddle_ids.get(paddle_id) is None:
+                                    self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+                                    self.paddle_ids[paddle_id] = True
+                                else:
+                                    for paddle in self.paddles:
+                                        # Update position on client side if they are not holding the paddle
+                                        if paddle.paddleID == paddle_id:
+                                            paddle_info = game_state['paddles'][paddle_id]
+                                            if not (self.curPaddle and self.curPaddle.paddleID == paddle_id):
+                                                paddle.x, paddle.y = tuple(paddle_info.get('position'))
+                                                paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
+                                                paddle.isGrabbed = paddle_info.get('isGrabbed')
 
-                        for paddle_id in new_state['game_state']['paddles']:
-                            # print(f"Paddle ID: {paddle_id}")
-                            if self.paddle_ids.get(paddle_id) is None:
-                                self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
-                                self.paddle_ids[paddle_id] = True
-                            else:
-                                for paddle in self.paddles:
-                                    # Update position on client side if they are not holding the paddle
-                                    if paddle.paddleID == paddle_id and not (self.curPaddle and self.curPaddle.paddleID == paddle_id):
-                                        paddle_info = new_state['game_state']['paddles'][paddle_id]
-                                        paddle.x, paddle.y = tuple(paddle_info.get('position'))
-                                        paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
-                                        paddle.isGrabbed = paddle_info.get('isGrabbed')
-                        for puck in new_state['game_state']['puck']:
-                            pass
-                        for score in new_state['game_state']['score']:
-                            pass
+                            puck_info = game_state.get('puck')
+                            if puck_info:
+                                self.puck.x, self.puck.y = tuple(puck_info['position'])
+                                self.puck.vx, self.puck.vy = tuple(puck_info['velocity'])
 
-                        # print(new_state)
+                            for score in new_state['game_state']['score']:
+                                pass
+
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)
