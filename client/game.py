@@ -521,6 +521,7 @@ class Game:
                 # Only the most current state of the game is saved
                 # game_state = json.loads(game_state)
                 for game_state in game_states:
+                    # print(game_state)
                     game_state = json.loads(game_state)
                     if game_state['action'] == "state_update":
 
@@ -532,8 +533,9 @@ class Game:
 
                             self.gameStateBuffer.append(game_state)
 
+            except (BrokenPipeError, OSError):
+                return
             except Exception as e:
-                print("Something went wrong:", e)
                 if not game_running:
                     break
 
@@ -575,9 +577,8 @@ class Game:
                                 self.paddle_ids[paddle_id] = True
                             else:
                                 for paddle in self.paddles:
-                                    print(paddle.paddleID, paddle_id)
-                                    if paddle.paddleID == paddle_id:
-                                        print("Here")
+                                    # Update position on client side if they are not holding the paddle
+                                    if paddle.paddleID == paddle_id and not (self.curPaddle and self.curPaddle.paddleID == paddle_id):
                                         paddle_info = new_state['game_state']['paddles'][paddle_id]
                                         paddle.x, paddle.y = tuple(paddle_info.get('position'))
                                         paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
