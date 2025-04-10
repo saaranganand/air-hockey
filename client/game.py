@@ -658,7 +658,10 @@ class Game:
                     curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
                     delta = (curTime - self.lastPacketSent) * 1000
                     if delta > self.packetDelta:
-                        server_socket.send(str.encode(packet))
+                        try:
+                            server_socket.send(str.encode(packet))
+                        except Exception as e:
+                            print(e)
                         self.lastPacketSent = curTime
 
                 for event in pygame.event.get():
