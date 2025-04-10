@@ -28,6 +28,16 @@ def get_local_ip():
         except Exception:
             return '127.0.0.1'  # fallback
 
+def send_to_server(server_socket, msg):
+    try:
+        server_socket.send(msg)
+    except OSError: # try to reconnect
+        print("Broken pipe happens here")
+        print(OSError)
+        return False
+    return True
+
+
 # Constants
 WIDTH, HEIGHT = 1280, 720
 WHITE = (255, 255, 255)
@@ -658,10 +668,7 @@ class Game:
                     curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
                     delta = (curTime - self.lastPacketSent) * 1000
                     if delta > self.packetDelta:
-                        try:
-                            server_socket.send(str.encode(packet))
-                        except Exception as e:
-                            print(e)
+                        send_to_server(server_socket, str.encode(packet))
                         self.lastPacketSent = curTime
 
                 for event in pygame.event.get():
@@ -678,7 +685,7 @@ class Game:
                                         "paddle_id": paddle.paddleID
                                     })
                                     
-                                    server_socket.send(str.encode(packet))
+                                    send_to_server(server_socket, str.encode(packet))
                                     self.curPaddle = paddle
                                     self.curPaddle.isGrabbed = True
                                     break
@@ -692,7 +699,7 @@ class Game:
                                     "paddle_id": self.curPaddle.paddleID
                                 })
 
-                                server_socket.send(str.encode(packet))
+                                send_to_server(server_socket, str.encode(packet))
                                 self.curPaddle.isGrabbed = False
                                 self.curPaddle = None
                             self.mousedown = False
