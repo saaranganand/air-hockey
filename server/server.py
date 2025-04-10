@@ -143,8 +143,6 @@ class Server:
                             self.paddleInfo[paddle_id]["position"] = position
                             self.paddleInfo[paddle_id]["velocity"] = velocity
                             self.paddles[paddle_id]["velocity"] = velocity
-                            # self.game_state["paddles"][paddle_id]["position"] = position
-                            # self.game_state["paddles"][paddle_id]["velocity"] = velocity 
                             
                             self.actionQueue.append({
                                 "update_position": {
@@ -169,34 +167,36 @@ class Server:
                         requested_paddle = message.get("paddle_id")
 
                         with self.lock:
-                            print("Adding grab info to action")
                             if requested_paddle in self.paddles: # paddle exists
                                 if self.paddles[requested_paddle]["locked_by"] is None: # paddle not alr claimed
                                     self.paddles[requested_paddle]["locked_by"] = player_id
                                     self.players[player_id]["paddle_id"] = requested_paddle
 
-                                    print(f"Player {player_id} successfully grabbed paddle {requested_paddle}")
+                                    # print(f"Player {player_id} successfully grabbed paddle {requested_paddle}")
                                     ack = json.dumps({
                                         "action": "grab_ack",
                                         "status": "success",
+                                        "player": player_id,
                                         "paddle_id": requested_paddle
                                     })
                                     self.actionQueue.append({"grab": {'success': True, 'paddle': requested_paddle, 'player': player_id}})
                                 else: # paddle alr claimed
-                                    print(f"Player {player_id} failed to grab paddle {requested_paddle} (already locked)")
+                                    # print(f"Player {player_id} failed to grab paddle {requested_paddle} (already locked)")
                                     ack = json.dumps({
                                         "action": "grab_ack",
                                         "status": "failed",
                                         "paddle_id": requested_paddle,
+                                        "player": player_id,
                                         "reason": "paddle already locked"
                                     })
                                     self.actionQueue.append({'grab': {'success': False, 'paddle': requested_paddle, 'player_id': player_id}})
                             else: # paddle doesnt exist
-                                print(f"Player {player_id} requested to grab invalid paddle")
+                                # print(f"Player {player_id} requested to grab invalid paddle")
                                 ack = json.dumps({
                                     "action": "grab_ack",
                                     "status": "failed",
                                     "paddle_id": requested_paddle,
+                                    "player": player_id,
                                     "reason": "invalid paddle"
                                 })
                                 self.actionQueue.append({'grab': {'success': False, 'paddle': requested_paddle, 'player_id': player_id}})
@@ -216,7 +216,7 @@ class Server:
                                 if self.paddles[released_paddle]["locked_by"] == player_id: # ensure paddle alr claimed (by this player)
                                     self.paddles[released_paddle]["locked_by"] = None
 
-                                    print(f"Player {player_id} released paddle {released_paddle}")
+                                    # print(f"Player {player_id} released paddle {released_paddle}")
                                     ack = json.dumps({
                                         "action": "release_ack",
                                         "status": "success",

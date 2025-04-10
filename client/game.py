@@ -534,7 +534,7 @@ class Game:
                     # print(game_state)
                     game_state = json.loads(game_state)
                     action = game_state.get('action')
-                    if action == "state_update":
+                    if action == "state_update" or action == 'grab_ack':
 
                         with buffer_lock:
 
@@ -543,6 +543,8 @@ class Game:
                                 self.gameStateBuffer.popleft()
 
                             self.gameStateBuffer.append(game_state)
+
+                        
 
             except (BrokenPipeError, OSError):
                 return
@@ -584,7 +586,6 @@ class Game:
         
                         if game_state:
                             for paddle_id in game_state['paddles']:
-                                # print(f"Paddle ID: {paddle_id}")
                                 if self.paddle_ids.get(paddle_id) is None:
                                     self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
                                     self.paddle_ids[paddle_id] = True
@@ -608,10 +609,10 @@ class Game:
                                 self.leftScore = score_info['left']
                                 self.rightScore = score_info['right']
 
-                            grab_info = score_info.get('grab')
-                            if grab_info:
-                                print('Here')
-
+                        if new_state.get('action') == 'grab_ack':
+                            if self.curPaddle and self.curPaddle.paddleID == new_state.get('paddle_id'):
+                                if player_id != new_state.get('player'):
+                                    self.curPaddle = None
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)

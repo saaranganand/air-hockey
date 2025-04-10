@@ -73,7 +73,6 @@ class Simulator:
                 elif action_type == 'grab':
                     paddle_info = action
                     if paddle_info.get('success'):
-                        print(paddle_info.get('paddle'))
                         self.paddles[paddle_info.get('paddle')].isGrabbed = True
                 elif action_type == 'release':
                     self.paddles[action].isGrabbed = False 
