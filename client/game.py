@@ -668,7 +668,7 @@ class Game:
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         if event.button == 1:
                             for paddle in self.paddles:
-                                if paddle.mouseInRadius(paddle):
+                                if paddle.mouseInRadius(paddle) and not paddle.isGrabbed:
                                     packet = json.dumps({
                                         "action": "grab_paddle",
                                         "player_id": player_id,
