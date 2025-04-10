@@ -465,12 +465,24 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
         dpNorm2 = paddle2.vx * nx + paddle2.vy * ny
 
         angle = math.atan2(paddle1.y - paddle2.y, paddle1.x - paddle2.x)
-        if paddle1.isGrabbed and not paddle2.isGrabbed:
+        if (paddle1.isGrabbed and paddle2.isGrabbed) or (not paddle1.isGrabbed and not paddle2.isGrabbed):
+            # Swap normal velocities
+            paddle1.vx = tx * dpTan1 + nx * dpNorm2
+            paddle1.vy = ty * dpTan1 + ny * dpNorm2
+            paddle2.vx = tx * dpTan2 + nx * dpNorm1
+            paddle2.vy = ty * dpTan2 + ny * dpNorm1
+
+            # make both players drop their paddle if they collide
+            paddle1.isGrabbed = False
+            paddle2.isGrabbed = False
+        elif paddle1.isGrabbed and not paddle2.isGrabbed:
             paddle2.vx += paddle1.curSpeed * -math.cos(angle) * 0.9
             paddle2.vy += paddle1.curSpeed * -math.sin(angle) * 0.9
+            paddle1.isGrabbed = False
         elif paddle2.isGrabbed and not paddle1.isGrabbed:
             paddle1.vx += paddle2.curSpeed * math.cos(angle) * 0.9
             paddle1.vy += paddle2.curSpeed * math.sin(angle) * 0.9
+            paddle2.isGrabbed = False
 
         # prevent sticking together
         overlap = paddle1.radius * 2 - dist
@@ -648,22 +660,30 @@ class Game:
                 self.rightGoal.draw()
 
                 if self.curPaddle:
-                    # Send paddle information to server
-                    packet = json.dumps({
-                        "player_id": player_id,
-                        "type": "Paddle",
-                        "action": "update_position",
-                        "id": self.curPaddle.paddleID,
-                        "position": [self.curPaddle.x, self.curPaddle.y],
-                        "velocity": [self.curPaddle.vx, self.curPaddle.vy]
-                    })
-
-                    curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
-                    delta = (curTime - self.lastPacketSent) * 1000
-                    if delta > self.packetDelta:
-                        print("sending")
+                    if self.curPaddle.isGrabbed == False: # if the paddle has been dropped
+                        packet = json.dumps({
+                            "action": "release_paddle",
+                            "player_id": player_id,
+                            "paddle_id": self.curPaddle.paddleID
+                        })
                         send_to_server(server_socket, str.encode(packet))
-                        self.lastPacketSent = curTime
+                        self.curPaddle = None
+                    else:
+                        # Send paddle information to server
+                        packet = json.dumps({
+                            "player_id": player_id,
+                            "type": "Paddle",
+                            "action": "update_position",
+                            "id": self.curPaddle.paddleID,
+                            "position": [self.curPaddle.x, self.curPaddle.y],
+                            "velocity": [self.curPaddle.vx, self.curPaddle.vy]
+                        })
+
+                        curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
+                        delta = (curTime - self.lastPacketSent) * 1000
+                        if delta > self.packetDelta:
+                            send_to_server(server_socket, str.encode(packet))
+                            self.lastPacketSent = curTime
 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
