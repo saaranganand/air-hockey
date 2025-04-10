@@ -598,11 +598,13 @@ class Game:
 
                         new_state = self.gameStateBuffer.popleft()
                         game_state = new_state.get('game_state')
+                        colors = [(0, 0, 255), (255, 0, 0), (255, 0, 255), (255, 255, 0)]
         
                         if game_state:
                             for paddle_id in game_state['paddles']:
                                 if self.paddle_ids.get(paddle_id) is None:
-                                    self.paddles.append(Paddle(100, HEIGHT // 2, (0, 0, 255), paddle_id))
+                                    color = colors[len(self.paddles) % 4]
+                                    self.paddles.append(Paddle(100, HEIGHT // 2, color, paddle_id))
                                     self.paddle_ids[paddle_id] = True
                                 else:
                                     for paddle in self.paddles:
