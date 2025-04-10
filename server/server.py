@@ -104,7 +104,7 @@ class Server:
 
                     # acknowledge
                     ack = json.dumps({"action": "join_ack", "player_id": player_id, "paddle_id": paddle_id, "game_state": self.game_state})
-                    client_socket.sendall(ack.encode('utf-8'))
+                    client_socket.sendall((ack + "\n").encode('utf-8'))
                     # self.broadcast_game_state()
 
                 # ---
@@ -119,7 +119,7 @@ class Server:
                             "action": "error",
                             "message": "Invalid or missing player_id"
                         })
-                        client_socket.sendall(error_msg.encode('utf-8'))
+                        client_socket.sendall((error_msg + "\n").encode('utf-8'))
                         # self.broadcast_game_state()
                         continue
 
@@ -155,7 +155,7 @@ class Server:
 
                         #acknowledge
                         ack = json.dumps({"action": "update_ack", "player_id": player_id})
-                        client_socket.sendall(ack.encode('utf-8'))
+                        client_socket.sendall((ack + "\n").encode('utf-8'))
                         # self.broadcast_game_state()
 
                     # ---
@@ -200,7 +200,7 @@ class Server:
                                     "reason": "invalid paddle"
                                 })
                                 self.actionQueue.append({'grab': {'success': False, 'paddle': requested_paddle, 'player_id': player_id}})
-                        client_socket.sendall(ack.encode('utf-8'))
+                        client_socket.sendall((ack + "\n").encode('utf-8'))
                         # self.broadcast_game_state()
 
                     # ---
@@ -240,7 +240,7 @@ class Server:
                                     "status": "failed",
                                     "reason": "invalid paddle"
                                 })
-                        client_socket.sendall(ack.encode('utf-8'))
+                        client_socket.sendall((ack + "\n").encode('utf-8'))
                         # self.broadcast_game_state()
 
         except Exception as e:
@@ -299,7 +299,7 @@ class Server:
                 "game_state": self.game_state
             })
             for player in self.players.values():
-                player["client_socket"].sendall(game_state_message.encode('utf-8'))
+                player["client_socket"].sendall((game_state_message + "\n").encode('utf-8'))
         except Exception as e:
             print("Something went wrong broadcasting:", e)
 
