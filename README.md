@@ -66,6 +66,7 @@ To get a local copy up and running follow these simple steps:
 
 6. <p>Hit <kbd> Esc </kbd> at any point during the game to open the pause menu, which allows you to return to the main menu. </p>
 
+---
 
 ### The Team:
 
