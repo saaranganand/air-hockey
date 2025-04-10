@@ -252,11 +252,11 @@ class Server:
                         paddle_id = self.players[player_id]['paddle_id']
                         # remove player and corresponding paddle
                         del self.players[player_id]
-                        del self.paddles[paddle_id]
-                        del self.paddleInfo[paddle_id]
-                        del self.game_state["paddles"][paddle_id]
+                        # del self.paddles[paddle_id]
+                        # del self.paddleInfo[paddle_id]
+                        # del self.game_state["paddles"][paddle_id]
                 print(f"[-] {client_addr} disconnected")
-                # client_socket.close()
+                client_socket.close()
                 self.active_clients -= 1
                 # self.broadcast_game_state()
 
@@ -264,6 +264,7 @@ class Server:
             if self.active_clients == 0:
                 print("[*] No active clients. Shutting down server.")
                 self.stop_server()
+                return
 
 
     def start_server(self):
