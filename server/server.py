@@ -33,6 +33,7 @@ class Server:
         self.actionQueue = deque()
         self.paddleInfo = {}
         self.puckInfo = {}
+        start_new_thread(self.tick, ())
 
     # Handle server-side game simulation
     def tick(self):
@@ -61,7 +62,7 @@ class Server:
             while True:
                 # size of information we're trying to receive
                 # TODO: increase if insufficient (!takes longer!)
-                data = client_socket.recv(2048 * 16).decode('utf-8')
+                data = client_socket.recv(2048).decode('utf-8')
                 if not data:
                     print("No data")
                     break
@@ -284,7 +285,6 @@ class Server:
                     print("Connection from: ", client_addr)
 
                     start_new_thread(self.handle_client, (client_socket, client_addr))
-                    start_new_thread(self.tick, ())
                 except Exception as e:
                     if not self.running:
                         break
