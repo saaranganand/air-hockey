@@ -28,7 +28,7 @@ class Simulator:
         self.score = {"left": 0, "right": 0}
 
     # Simulate current game with new information from server
-    def simulate(self, action, simDelta):
+    def simulate(self, actions, simDelta):
         game_state = {
             "paddles": {},
             "puck": {"position": [self.puck.x, self.puck.y], "velocity": [self.puck.vx, self.puck.vy]},
@@ -55,27 +55,28 @@ class Simulator:
             }
 
 
-        if action:
-            for action_type in action.keys():
-                action = action[action_type]
-                if action_type == 'join':
-                    paddle_id = action['paddle_id']
-                    self.paddle_ids.append(paddle_id)
-                    x, y = tuple(action['position'])
-                    new_paddle = Paddle(x, y, paddle_id)
-                    self.paddles[paddle_id] = new_paddle
-                elif action_type == 'update_position':
-                    paddle_id = action['paddle_id']
-                    x, y = tuple(action['position'])
-                    vx, vy = tuple(action['velocity'])
-                    paddle = self.paddles[paddle_id]
-                    paddle.update(x, y, vx, vy)
-                elif action_type == 'grab':
-                    paddle_info = action
-                    if paddle_info.get('success'):
-                        self.paddles[paddle_info.get('paddle')].isGrabbed = True
-                elif action_type == 'release':
-                    self.paddles[action].isGrabbed = False 
+        if actions:
+            for action in actions:
+                for action_type in action.keys():
+                    action = action[action_type]
+                    if action_type == 'join':
+                        paddle_id = action['paddle_id']
+                        self.paddle_ids.append(paddle_id)
+                        x, y = tuple(action['position'])
+                        new_paddle = Paddle(x, y, paddle_id)
+                        self.paddles[paddle_id] = new_paddle
+                    elif action_type == 'update_position':
+                        paddle_id = action['paddle_id']
+                        x, y = tuple(action['position'])
+                        vx, vy = tuple(action['velocity'])
+                        paddle = self.paddles[paddle_id]
+                        paddle.update(x, y, vx, vy)
+                    elif action_type == 'grab':
+                        paddle_info = action
+                        if paddle_info.get('success'):
+                            self.paddles[paddle_info.get('paddle')].isGrabbed = True
+                    elif action_type == 'release':
+                        self.paddles[action].isGrabbed = False 
 
         self.puck.move(simDelta)
         for goal in self.goals:

@@ -33,6 +33,7 @@ def send_to_server(server_socket, msg):
         server_socket.send(msg)
     except OSError: # try to reconnect
         print("Broken pipe happens here")
+        server_socket.close()
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         wait_and_connect()
         
@@ -464,17 +465,7 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
         dpNorm2 = paddle2.vx * nx + paddle2.vy * ny
 
         angle = math.atan2(paddle1.y - paddle2.y, paddle1.x - paddle2.x)
-        if (paddle1.isGrabbed and paddle2.isGrabbed) or (not paddle1.isGrabbed and not paddle2.isGrabbed):
-            # Swap normal velocities
-            paddle1.vx = tx * dpTan1 + nx * dpNorm2
-            paddle1.vy = ty * dpTan1 + ny * dpNorm2
-            paddle2.vx = tx * dpTan2 + nx * dpNorm1
-            paddle2.vy = ty * dpTan2 + ny * dpNorm1
-            
-            # make both players drop their paddle if they collide
-            paddle1.isGrabbed = False
-            paddle2.isGrabbed = False
-        elif paddle1.isGrabbed and not paddle2.isGrabbed:
+        if paddle1.isGrabbed and not paddle2.isGrabbed:
             paddle2.vx += paddle1.curSpeed * -math.cos(angle) * 0.9
             paddle2.vy += paddle1.curSpeed * -math.sin(angle) * 0.9
         elif paddle2.isGrabbed and not paddle1.isGrabbed:
@@ -519,7 +510,7 @@ class Game:
         self.isListeningForGameState = False
 
         self.lastPacketSent = -float('inf')
-        self.packetDelta = 1000 / 30
+        self.packetDelta = 1000 / 10
 
     def listenForGameState(self):
 
@@ -670,6 +661,7 @@ class Game:
                     curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
                     delta = (curTime - self.lastPacketSent) * 1000
                     if delta > self.packetDelta:
+                        print("sending")
                         send_to_server(server_socket, str.encode(packet))
                         self.lastPacketSent = curTime
 

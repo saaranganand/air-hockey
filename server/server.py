@@ -26,11 +26,11 @@ class Server:
         }
         # Simulation
         self.sim = Simulator()
-        self.simDelta = 1000 / 30
+        self.simDelta = 1000 / 60
         self.broadcastDelta = 1000 / 60
         self.lastSim = -float('inf')
         self.lastBroadcast = -float('inf')
-        self.actionQueue = deque()
+        self.actionQueue = []
         self.paddleInfo = {}
         self.puckInfo = {}
         start_new_thread(self.tick, ())
@@ -43,10 +43,8 @@ class Server:
             simDelta = (curTime - self.lastSim) * 1000
             if (simDelta > self.simDelta):
                 with self.lock:
-                    action = None
-                    if self.actionQueue:
-                        action = self.actionQueue.popleft()
-                    self.game_state = self.sim.simulate(action, simDelta)
+                    self.game_state = self.sim.simulate(self.actionQueue, simDelta)
+                    self.actionQueue = []
                     self.lastSim = curTime
             if ((curTime - self.lastBroadcast) * 1000 > self.broadcastDelta):
                 with self.lock:
