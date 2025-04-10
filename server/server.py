@@ -61,7 +61,7 @@ class Server:
             while True:
                 # size of information we're trying to receive
                 # TODO: increase if insufficient (!takes longer!)
-                data = client_socket.recv(2048).decode('utf-8')
+                data = client_socket.recv(2048 * 16).decode('utf-8')
                 if not data:
                     print("No data")
                     break
@@ -257,7 +257,7 @@ class Server:
                         del self.paddleInfo[paddle_id]
                         del self.game_state["paddles"][paddle_id]
                 print(f"[-] {client_addr} disconnected")
-                client_socket.close()
+                # client_socket.close()
                 self.active_clients -= 1
                 # self.broadcast_game_state()
 
