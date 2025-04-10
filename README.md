@@ -4,7 +4,6 @@
 [![Stargazers][stars-shield]][stars-url]
 
 
-<br />
 <div align="center">
 
 # Air Hockey
