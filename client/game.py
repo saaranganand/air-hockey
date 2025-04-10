@@ -33,7 +33,9 @@ def send_to_server(server_socket, msg):
         server_socket.send(msg)
     except OSError: # try to reconnect
         print("Broken pipe happens here")
-        print(OSError)
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        wait_and_connect()
+        
         return False
     return True
 
