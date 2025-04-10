@@ -86,7 +86,7 @@ class Simulator:
                 self.puck.y = HEIGHT // 2
                 self.puck.vx, self.puck.vy = (0, 0)
         
-        game_state['score'] = {'left': self.score['left'], 'right': self.score['right']}
+        game_state['score'] = {'left': self.score['right'], 'right': self.score['left']}
 
         game_state['puck'] = {
             'position': [self.puck.x, self.puck.y],
