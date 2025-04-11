@@ -11,7 +11,7 @@
   <p align="center">
     A real-time multiplayer game built using Python and Pygame.
     <br />
-    <a href="https://github.com/saaranganand/project-371">View Demo</a>
+    <a href="https://youtu.be/sj8lavibLBY">View Demo</a>
   </p>
 </div>
 
