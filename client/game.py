@@ -233,7 +233,10 @@ class JoinGameMenu:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         SERVER_IP = self.server_ip.get_value()
-        SERVER_PORT = int(self.server_port.get_value())
+        if self.server_port.get_value().isdigit():
+            SERVER_PORT = int(self.server_port.get_value())
+        else:
+            return
 
         print(f"trying to connect to {SERVER_IP}:{SERVER_PORT}")
         if wait_and_connect():
