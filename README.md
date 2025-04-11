@@ -11,7 +11,7 @@
   <p align="center">
     A real-time multiplayer game built using Python and Pygame.
     <br />
-    <a href="https://youtu.be/sj8lavibLBY">View Demo</a>
+    <a href="https://youtu.be/eO7842qc25w">View Demo</a>
   </p>
 </div>
 
