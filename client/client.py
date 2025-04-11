@@ -1,7 +1,7 @@
 from game import Game
 import sys
 
-
+# Starts the client application
 def main():
 
     game = Game()

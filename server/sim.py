@@ -4,9 +4,6 @@ sim.py
 This file handles simulation logic to run on the server side
 It is very similar to what happens on the client side, but
 does not render anything, just handles updates to positions/velocities/scores
-
-Paddle/puck/goal should be abstracted into their own classes outside of this file
-and the client side but whatever
 '''
 
 import os
@@ -27,16 +24,19 @@ class Simulator:
         self.goals = [Goal('left'), Goal('right')]
         self.score = {"left": 0, "right": 0}
 
-    # Simulate current game with new information from server
+    # Simulate current game with new information from server, including collisions, scoring and moving
     def simulate(self, actions, simDelta):
+        # This struct will be populated as the game state is simulated, and will ultimately
+        # be what is sent to each player
         game_state = {
             "paddles": {},
             "puck": {"position": [self.puck.x, self.puck.y], "velocity": [self.puck.vx, self.puck.vy]},
             "score": self.score
         }
 
+        
+        # Check for collisions between paddles and the puck
         collisions = [] 
-
         for paddle_id in self.paddles:
             paddle = self.paddles[paddle_id]
             paddle.curSpeed = math.sqrt(paddle.vy**2 + paddle.vx**2)
@@ -47,7 +47,8 @@ class Simulator:
                 for paddle2 in self.paddles.values():
                     if paddle2 != paddle:
                         collisions.append(checkCollisionPaddleAndPaddle(paddle, paddle2))
-
+            
+            # Add each paddle's position and velocity to the game state
             game_state['paddles'][paddle_id] = {
                 'position': [paddle.x, paddle.y],
                 'velocity': [paddle.vx, paddle.vy],
@@ -55,39 +56,49 @@ class Simulator:
             }
 
 
+        # If there are any actions to simulate on the action queue
         if actions:
             for action in actions:
                 for action_type in action.keys():
                     action = action[action_type]
+                    # If a new player joins, create a new paddle at the default location
                     if action_type == 'join':
                         paddle_id = action['paddle_id']
                         self.paddle_ids.append(paddle_id)
                         x, y = tuple(action['position'])
                         new_paddle = Paddle(x, y, paddle_id)
                         self.paddles[paddle_id] = new_paddle
+                    # Reflect position updates
                     elif action_type == 'update_position':
                         paddle_id = action['paddle_id']
                         x, y = tuple(action['position'])
                         vx, vy = tuple(action['velocity'])
                         paddle = self.paddles[paddle_id]
                         paddle.update(x, y, vx, vy)
+                    # Maintain which paddles are held
                     elif action_type == 'grab':
                         paddle_info = action
                         if paddle_info.get('success'):
                             self.paddles[paddle_info.get('paddle')].isGrabbed = True
                     elif action_type == 'release':
                         self.paddles[action].isGrabbed = False 
-
+        
+        # Simulate puck movement
         self.puck.move(simDelta)
+
+        # Check for goals
         for goal in self.goals:
             if goal.checkCollisionWithPuck(self.puck):
+                # Update score and reset puck if goal
                 self.score[goal.side] += 1 
                 self.puck.x = WIDTH // 2
                 self.puck.y = HEIGHT // 2
                 self.puck.vx, self.puck.vy = (0, 0)
         
+        # Send current score with game state
         game_state['score'] = {'left': self.score['right'], 'right': self.score['left']}
-
+        
+        # Send puck information with game state
         game_state['puck'] = {
             'position': [self.puck.x, self.puck.y],
             'velocity': [self.puck.vx, self.puck.vy]
@@ -109,12 +120,14 @@ class Paddle:
         self.isGrabbed = False
         self.paddleID = paddle_id
 
+    # Updates the paddle's parameters 
     def update(self, x, y, vx, vy):
         self.x = x
         self.y = y
         self.vx = vx
         self.vy = vy
-        
+    
+    # Simulate the paddle's movement
     def move(self):
         self.x += self.vx
         self.y += self.vy
@@ -141,7 +154,8 @@ class Puck:
         self.vy = 0
         self.friction = 0.99
         self.maxSpeed = 25
-
+    
+    # Simulate the puck's movement
     def move(self, delta):
         self.x += self.vx
         self.y += self.vy
@@ -166,9 +180,6 @@ class Puck:
             self.vx = (self.vx / velocity) * self.maxSpeed
             self.vy = (self.vy / velocity) * self.maxSpeed
 
-
-    def draw(self, screen):
-        pygame.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
 class Goal:
     def __init__(self, side):

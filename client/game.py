@@ -28,11 +28,11 @@ def get_local_ip():
         except Exception:
             return '127.0.0.1'  # fallback
 
+# Send a packet to the server
 def send_to_server(server_socket, msg):
     try:
         server_socket.send(msg)
-    except OSError: # try to reconnect
-        print("Broken pipe happens here")
+    except OSError: # OSError occurs if theere was a problem with the socket: attempt reconnection 
         server_socket.close()
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         wait_and_connect()
@@ -52,7 +52,6 @@ is_paused = False
 game_running = False
 player_name = ""
 player_id = ""
-# paddle_id = ""
 server_socket = None
 game_session = None
 main_menu = None
@@ -65,6 +64,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Air Hockey")
 
 
+# Try to connect to the server 5 times, timeout after 5 failures
 def wait_for_server():
     global SERVER_PORT, game_session
 
@@ -84,9 +84,11 @@ def wait_for_server():
     return False
 
 
+# Try to connect to the server 5 times, timeout after 5 failures
+# Gets player id from server
 def wait_and_connect():
     global SERVER_PORT, SERVER_IP, server_socket
-    print(f"wait and connect trying to connect to {SERVER_IP}:{SERVER_PORT}")
+    print(f"Attempting to establish connection to {SERVER_IP}:{SERVER_PORT}")
 
     # Connect to the server. If it fails after 5 attempts, time out
     for i in range(5):
@@ -113,7 +115,6 @@ def wait_and_connect():
 def leave_match():
     global game_session, server_socket
 
-    # TODO: Implement graceful disconnection with the host user
     try:
         msg = json.dumps({
             "action": "disconnect",
@@ -269,6 +270,7 @@ class Paddle:
         self.isGrabbed = False
         self.paddleID = paddle_id
 
+    # Simulate paddle movement, follow mouse if grabbed
     def move(self):
         if not self.isGrabbed:
             self.x += self.vx
@@ -285,7 +287,7 @@ class Paddle:
             # Prevent clipping into walls
             self.x = max(self.radius, min(self.x, WIDTH - self.radius))
             self.y = max(self.radius, min(self.y, HEIGHT - self.radius))
-        else:
+        else: # if grabbed
             mouseX, mouseY = pygame.mouse.get_pos()
             dist = -math.hypot(self.x - mouseX, self.y - mouseY)
             angle = math.atan2(self.y - mouseY, self.x - mouseX)
@@ -503,7 +505,10 @@ goalHornSoundEffect = pygame.mixer.Sound(os.path.join(client_dir, "./sounds/goal
 font = pygame.font.SysFont(pygame.font.get_default_font(), 40)
 txtsurface = font.render("0:0", True, (255, 255, 255))
 
-
+'''
+The game class handles presentation of the game state to the player, and handles user interation
+between the screen and the game state. It is the main interface between pygame and the server.
+'''
 class Game:
     def __init__(self):
         self.paddles = []
@@ -524,6 +529,8 @@ class Game:
         self.lastPacketSent = -float('inf')
         self.packetDelta = 1000 / 10
 
+    # The client always needs to listen for game state updates from the server.
+    # Game state updates from the server take precedence over local simulation
     def listenForGameState(self):
 
         while game_running:
@@ -600,9 +607,11 @@ class Game:
                         game_state = new_state.get('game_state')
                         colors = [(0, 0, 255), (255, 0, 0), (255, 0, 255), (255, 255, 0)]
         
+                        # Update local game state with game state received from server, if necessary
                         if game_state:
+                            # Update paddle position and grabbed status
                             for paddle_id in game_state['paddles']:
-                                if self.paddle_ids.get(paddle_id) is None:
+                                if self.paddle_ids.get(paddle_id) is None: # adds a new paddle if it doesn't exist yet
                                     color = colors[len(self.paddles) % 4]
                                     self.paddles.append(Paddle(100, HEIGHT // 2, color, paddle_id))
                                     self.paddle_ids[paddle_id] = True
@@ -615,26 +624,33 @@ class Game:
                                                 paddle.x, paddle.y = tuple(paddle_info.get('position'))
                                                 paddle.vx, paddle.vy = tuple(paddle_info.get('velocity'))
                                                 paddle.isGrabbed = paddle_info.get('isGrabbed')
-
+        
+                            # Update the location of the puck
                             puck_info = game_state.get('puck')
                             if puck_info:
                                 self.puck.x, self.puck.y = tuple(puck_info['position'])
                                 self.puck.vx, self.puck.vy = tuple(puck_info['velocity'])
 
+                            # Update the current score
                             score_info = game_state.get('score')
                             if score_info:
                                 self.leftScore = score_info['left']
                                 self.rightScore = score_info['right']
 
+                        # If the packet contians info about the status of a grab, checks here
                         if new_state.get('action') == 'grab_ack':
                             if self.curPaddle and self.curPaddle.paddleID == new_state.get('paddle_id'):
+                                # If another player successfully grabbed the paddle before this client, release it
                                 if player_id != new_state.get('player') and new_state.get('status') == 'success':
                                     self.curPaddle = None
+                                # If this client's grab failed, release it 
                                 elif player_id == new_state.get('player') and new_state.get('status') == 'failed':
                                     self.curPaddle = None
 
                 pygame.time.delay(30)  # Control game speed
                 screen.fill(BLACK)
+
+                # Display score and host IP
                 txtsurface = font.render(f"{self.leftScore}:{self.rightScore}", False, (255, 255, 255))
                 screen.blit(txtsurface, (WIDTH // 2 - txtsurface.get_width() // 2, 20 - txtsurface.get_height() // 2))
                 txtsurface2 = font.render(f"Connected to {SERVER_IP}:{SERVER_PORT}", False, (255, 255, 255))
@@ -642,12 +658,15 @@ class Game:
 
                 collisions = []
 
+                # Change the user's cursor if they are hovering over a paddle
                 if self.mousedown and self.curPaddle:
                     pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
                 else:
                     pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
                 self.puck.move()
+
+                # Check for collisions between paddles and other objects
                 for paddle in self.paddles:
                     checkCollisionPuckAndPaddle(paddle, self.puck)
                     paddle.draw(screen)
@@ -663,8 +682,10 @@ class Game:
                 self.leftGoal.draw()
                 self.rightGoal.draw()
 
+                # self.curPaddle is not None if the user is holding a paddle
                 if self.curPaddle:
-                    if self.curPaddle.isGrabbed == False: # if the paddle has been dropped
+                    # if the paddle has been dropped
+                    if self.curPaddle.isGrabbed == False:                         
                         packet = json.dumps({
                             "action": "release_paddle",
                             "player_id": player_id,
@@ -673,7 +694,7 @@ class Game:
                         send_to_server(server_socket, str.encode(packet))
                         self.curPaddle = None
                     else:
-                        # Send paddle information to server
+                        # Send paddle location information to server
                         packet = json.dumps({
                             "player_id": player_id,
                             "type": "Paddle",
@@ -683,19 +704,23 @@ class Game:
                             "velocity": [self.curPaddle.vx, self.curPaddle.vy]
                         })
 
+                        # Ensure we don't send a position update every frame, as that would be too many for the server to handle
                         curTime = time.clock_gettime(time.CLOCK_MONOTONIC)
                         delta = (curTime - self.lastPacketSent) * 1000
                         if delta > self.packetDelta:
                             send_to_server(server_socket, str.encode(packet))
                             self.lastPacketSent = curTime
 
+                # Pygame events include mouse input or closing the game
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         leave_match()
                         self.running = False
                     elif event.type == pygame.MOUSEBUTTONDOWN:
+                        # Mouse button 1 down
                         if event.button == 1:
                             for paddle in self.paddles:
+                                # Try to grab a paddle if it is under the mouse
                                 if paddle.mouseInRadius(paddle) and not paddle.isGrabbed:
                                     packet = json.dumps({
                                         "action": "grab_paddle",
@@ -710,6 +735,7 @@ class Game:
                             self.mousedown = True
                     elif event.type == pygame.MOUSEBUTTONUP:
                         if event.button == 1:
+                            # Release a paddle if currently holding one
                             if self.curPaddle:
                                 packet = json.dumps({
                                     "action": "release_paddle",
