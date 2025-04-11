@@ -254,6 +254,8 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
         
         # avoid division by 0
         if dx == 0 or dy == 0:
+            paddle1.x += paddle1.radius * 1.1
+            paddle2.x -= paddle2.radius * 1.1
             return
 
         # normal vector
@@ -292,11 +294,15 @@ def checkCollisionPaddleAndPaddle(paddle1, paddle2):
 
         # prevent sticking together
         overlap = paddle1.radius * 2 - dist
-        if overlap < 0:
-            separation = (overlap / 2) + 0.5
-            paddle1.x -= nx * separation 
-            paddle1.y -= ny * separation 
-            paddle2.x += nx * separation 
-            paddle2.y += ny * separation 
+        if dist <= 10e-5:
+            paddle1.x += paddle1.radius * 1.1
+            paddle2.x -= paddle2.radius * 1.1
+
+        if overlap > 0:
+            direction = (paddle2.x - paddle1.x, paddle2.y - paddle1.y)
+            paddle1.x -= overlap * direction[0] * 10e-4 
+            paddle1.y -= overlap * direction[1] * 10e-4 
+            paddle2.x += overlap * direction[0] * 10e-4 
+            paddle2.y += overlap * direction[1] * 10e-4 
         return paddle1, paddle2
     return None
