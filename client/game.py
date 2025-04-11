@@ -628,7 +628,9 @@ class Game:
 
                         if new_state.get('action') == 'grab_ack':
                             if self.curPaddle and self.curPaddle.paddleID == new_state.get('paddle_id'):
-                                if player_id != new_state.get('player'):
+                                if player_id != new_state.get('player') and new_state.get('status') == 'success':
+                                    self.curPaddle = None
+                                elif player_id == new_state.get('player') and new_state.get('status') == 'failed':
                                     self.curPaddle = None
 
                 pygame.time.delay(30)  # Control game speed
