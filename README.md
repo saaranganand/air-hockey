@@ -38,11 +38,11 @@ To get a local copy up and running follow these simple steps:
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/saaranganand/project-371.git
+   git clone https://github.com/saaranganand/air-hockey.git
    ```
 2. Navigate to the repo
    ```sh
-   cd project-371
+   cd air-hockey
    ```
 3. Install prerequisite packages
    ```sh
@@ -69,8 +69,8 @@ To get a local copy up and running follow these simple steps:
 
 ### The Team:
 
-<a href="https://github.com/saaranganand/project-371/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=saaranganand/project-371" alt="contrib.rocks image" />
+<a href="https://github.com/saaranganand/air-hockey/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=saaranganand/air-hockey" alt="contrib.rocks image" />
 </a>
 
 * [James Chuong](https://github.com/JamesChuong)
@@ -87,7 +87,7 @@ _Simon Fraser University - Spring 2025_
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/saaranganand/project-371.svg?style=for-the-badge
-[contributors-url]: https://github.com/saaranganand/project-371/graphs/contributors
-[stars-shield]: https://img.shields.io/github/stars/saaranganand/project-371.svg?style=for-the-badge
-[stars-url]: https://github.com/saaranganand/project-371/stargazers
+[contributors-shield]: https://img.shields.io/github/contributors/saaranganand/air-hockey.svg?style=for-the-badge
+[contributors-url]: https://github.com/saaranganand/air-hockey/graphs/contributors
+[stars-shield]: https://img.shields.io/github/stars/saaranganand/air-hockey.svg?style=for-the-badge
+[stars-url]: https://github.com/saaranganand/air-hockey/stargazers
