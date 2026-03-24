@@ -17,7 +17,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-We built a real-time, multiplayer version of the tabletop classic - Air Hockey - from the ground-up in Python using Pygame. It utilizes a client-server model where one machine hosts the game server, while multiple clients connect to join and interact in the same game. The game features realistic physics, collision detection, and interactive mechanics that allow players to control paddles, hit a puck, and score goals.
+We built a real-time, multiplayer version of the tabletop classic - Air Hockey - from the ground-up in Python using Pygame. It utilizes a client-server model over TCP where one machine hosts the game server, while multiple clients connect to join and interact in the same game. Game state is exchanged as JSON messages over TCP sockets. The game features realistic physics, collision detection, and interactive mechanics that allow players to control paddles, hit a puck, and score goals.
 
 
 ## Game Features:
